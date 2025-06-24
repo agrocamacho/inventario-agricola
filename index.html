@@ -8,6 +8,34 @@
     <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="floating-btn-group" style="position:fixed; top:16px; right:16px; z-index:3000; display:flex; gap:12px;">
+      <button id="backToStatsBtn" class="btn-secondary back-to-stats">📊 Volver a Analíticas</button>
+      <button id="loginBtn" class="btn-secondary">Iniciar sesión</button>
+      <button id="logoutBtn" class="btn-secondary" style="display:none;">Cerrar sesión</button>
+    </div>
+    <div id="loginModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:320px; margin:auto;">
+        <h2>Iniciar sesión</h2>
+        <form id="loginForm">
+          <div class="form-group">
+            <label>Usuario:</label>
+            <input type="text" id="loginUser" required>
+          </div>
+          <div class="form-group">
+            <label>Contraseña:</label>
+            <input type="password" id="loginPass" required>
+          </div>
+          <div class="modal-buttons">
+            <button type="submit" class="btn-primary">Entrar</button>
+            <button type="button" class="btn-secondary" id="closeLoginModal">Cancelar</button>
+          </div>
+        </form>
+        <div id="loginError" style="color:red; margin-top:8px; display:none;">Usuario o contraseña incorrectos</div>
+      </div>
+    </div>
+    <div id="mobileMessage" style="display:none; text-align:center; padding:2em; font-size:1.2em;">
+      Por favor, usa el modo escritorio para acceder a todas las funciones.
+    </div>
     <!-- Panel de Estadísticas -->
     <div class="stats-panel" id="statsPanel">
         <div class="stats-header">
@@ -15,7 +43,7 @@
             <h2>Estadísticas Generales</h2>
         </div>
         <div class="stats-grid">
-            <div class="stat-card">
+            <div class="stat-card financial-data">
                 <div class="stat-icon">📦</div>
                 <div class="stat-info">
                     <h3>Valor Total del Inventario</h3>
@@ -29,7 +57,7 @@
                     <p id="totalProducts">0</p>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card financial-data">
                 <div class="stat-icon">💰</div>
                 <div class="stat-info">
                     <h3>Ganancia Potencial Total</h3>
@@ -39,26 +67,34 @@
         </div>
         <div class="stats-footer">
             <button id="viewInventoryBtn" class="btn-primary">Ver Inventario</button>
+            <button id="resetDataBtn" class="btn-danger">Limpiar Base de Datos</button>
         </div>
     </div>
 
-    <!-- Contenedor Principal (inicialmente oculto) -->
+    <!-- Contenedor Principal -->
     <div class="container" id="mainContainer" style="display: none;">
-        <!-- Sidebar with product list -->
+        <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <h2>Productos</h2>
-                <div class="sidebar-buttons">
+                <button id="showSidebarButtons" style="display:none; margin-bottom: 0.5rem;">Mostrar Opciones</button>
+                <div class="sidebar-buttons" id="sidebarButtonsGroup">
                     <button id="addProductBtn" class="btn-primary">+ Nuevo Producto</button>
                     <button id="newPeriodBtn" class="btn-secondary">Finalizar Período</button>
+                    <button id="viewPeriodsBtn" class="btn-secondary financial-data">📅 Ver Períodos</button>
                 </div>
             </div>
+            <div class="filter-section">
+                <select id="filterTagSelect" class="tag-select">
+                    <option value="">Todas las etiquetas</option>
+                </select>
+            </div>
             <div class="product-list" id="productList">
-                <!-- Products will be listed here -->
+                <!-- Los productos se mostrarán aquí -->
             </div>
         </div>
 
-        <!-- Main content area -->
+        <!-- Contenido Principal -->
         <div class="main-content">
             <div class="product-details" id="productDetails">
                 <div class="product-header">
@@ -70,50 +106,30 @@
                 </div>
 
                 <div class="product-grid">
-                    <!-- Product Image and Summary -->
+                    <!-- Imagen y Resumen -->
                     <div class="product-image-container">
                         <div class="product-image" id="productImage">
-                            <img src="placeholder.svg" alt="Producto" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img src="placeholder.svg" alt="Producto">
                             <button id="editImageBtn" class="edit-image-btn" title="Cambiar imagen">
                                 <span class="edit-icon">✎</span>
                             </button>
                         </div>
                         <div class="summary-box">
                             <h3>Resumen de Ventas</h3>
-                            <div class="summary-item">
+                            <div class="summary-item financial-data">
                                 <span>Valor Total Vendido:</span>
                                 <span id="totalSalesValue">$0.00</span>
                             </div>
-                            <div class="summary-item">
+                            <div class="summary-item financial-data">
                                 <span>Ganancia Total:</span>
                                 <span id="totalProfit">$0.00</span>
                             </div>
                         </div>
-                        <!-- Stock Controls -->
-                        <div class="stock-controls-container">
-                            <h3>Control de Stock</h3>
-                            <div class="stock-controls">
-                                <div class="stock-input">
-                                    <label>Entrada de Stock:</label>
-                                    <div class="stock-input-group">
-                                        <input type="number" id="stockIn" min="0" placeholder="Cantidad">
-                                        <button id="addStockBtn" class="btn-success">+ Agregar</button>
-                                    </div>
-                                </div>
-                                <div class="stock-input">
-                                    <label>Salida de Stock:</label>
-                                    <div class="stock-input-group">
-                                        <input type="number" id="stockOut" min="0" placeholder="Cantidad">
-                                        <button id="removeStockBtn" class="btn-danger">- Remover</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
-                    <!-- Product Details -->
+                    <!-- Detalles del Producto -->
                     <div class="details-container">
-                        <div class="details-section">
+                        <div class="details-section financial-data">
                             <h3>Información del Producto</h3>
                             <div class="detail-item">
                                 <label>Precio Unitario:</label>
@@ -138,7 +154,7 @@
                             </div>
                         </div>
 
-                        <div class="details-section">
+                        <div class="details-section financial-data">
                             <h3>Análisis Financiero</h3>
                             <div class="detail-item">
                                 <label>Precio de Costo Total:</label>
@@ -151,6 +167,27 @@
                             <div class="detail-item">
                                 <label>Ganancia Potencial:</label>
                                 <span id="potentialProfit">$0</span>
+                            </div>
+                        </div>
+
+                        <!-- Controles de Stock -->
+                        <div class="stock-controls-container">
+                            <h3>Control de Stock</h3>
+                            <div class="stock-controls">
+                                <div class="stock-input">
+                                    <label>Entrada de Stock:</label>
+                                    <div class="stock-input-group">
+                                        <input type="number" id="stockIn" min="0" placeholder="Cantidad">
+                                        <button id="addStockBtn" class="btn-success">+ Agregar</button>
+                                    </div>
+                                </div>
+                                <div class="stock-input">
+                                    <label>Salida de Stock:</label>
+                                    <div class="stock-input-group">
+                                        <input type="number" id="stockOut" min="0" placeholder="Cantidad">
+                                        <button id="removeStockBtn" class="btn-danger">- Remover</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -179,16 +216,11 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Image Controls -->
-                <div class="image-controls">
-                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
-                </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal for adding/editing products -->
+    <!-- Modal para agregar/editar producto -->
     <div id="productModal" class="modal">
         <div class="modal-content">
             <h2>Producto</h2>
@@ -210,8 +242,26 @@
                     <input type="number" id="initialStockInput" name="initialStock" required>
                 </div>
                 <div class="form-group">
+                    <label>Clasificación del Producto:</label>
+                    <div class="classification-container">
+                        <div class="selected-tags" id="selectedTags">
+                            <!-- Las etiquetas seleccionadas se mostrarán aquí -->
+                        </div>
+                        <div class="tag-selection">
+                            <select id="tagSelect" class="tag-select">
+                                <option value="">Seleccionar etiqueta...</option>
+                                <!-- Las etiquetas disponibles se cargarán dinámicamente -->
+                            </select>
+                            <button type="button" id="addTagBtn" class="btn-secondary">+ Nueva Etiqueta</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>Imagen del Producto:</label>
-                    <input type="file" id="productImageInput" name="productImage" accept="image/*">
+                    <input type="file" id="productImageInput" name="productImage" accept="image/*" required>
+                    <div id="imageUrlPreviewContainer" style="margin-top:8px;display:none;">
+                        <img id="imageUrlPreview" src="" alt="Previsualización" style="max-width:100px;max-height:100px;border:1px solid #ccc;">
+                    </div>
                 </div>
                 <div class="modal-buttons">
                     <button type="submit" class="btn-primary">Guardar</button>
@@ -221,7 +271,7 @@
         </div>
     </div>
 
-    <!-- Custom Dialog for Editing -->
+    <!-- Dialog para editar valores -->
     <div id="editDialog" class="custom-dialog">
         <div class="dialog-content">
             <div class="dialog-icon">✎</div>
@@ -236,7 +286,7 @@
         </div>
     </div>
 
-    <!-- Date Range Modal -->
+    <!-- Modal para seleccionar rango de fechas -->
     <div id="dateRangeModal" class="modal">
         <div class="modal-content date-range-modal">
             <h2>Finalizar Período</h2>
@@ -257,7 +307,267 @@
         </div>
     </div>
 
+    <!-- Modal de Historial de Períodos -->
+    <div id="periodsHistoryModal" class="modal">
+        <div class="modal-content periods-history-modal">
+            <h2>Historial de Períodos</h2>
+            <div id="periodsList" class="periods-list">
+                <!-- Los períodos se generarán dinámicamente aquí -->
+            </div>
+            <div class="modal-footer">
+                <button id="closePeriodsHistory" class="btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input oculto para cambiar imagen -->
+    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+
+    <!-- Modal para agregar nueva etiqueta -->
+    <div id="newTagModal" class="modal">
+        <div class="modal-content">
+            <h2>Nueva Etiqueta</h2>
+            <form id="newTagForm">
+                <div class="form-group">
+                    <label>Nombre de la Etiqueta:</label>
+                    <input type="text" id="newTagName" name="newTagName" required>
+                </div>
+                <div class="form-group">
+                    <label>Color de la Etiqueta:</label>
+                    <input type="color" id="newTagColor" name="newTagColor" value="#4CAF50">
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn-primary">Crear Etiqueta</button>
+                    <button type="button" class="btn-secondary" id="closeNewTagModal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Botón flotante solo para móvil -->
+    <button id="openProductListBtn" class="mobile-only" style="display:none; position:fixed; bottom:80px; right:16px; z-index:1200; width:56px; height:56px; border-radius:50%; background:#007AFF; color:#fff; font-size:2em; box-shadow:0 2px 8px rgba(0,0,0,0.18); border:none; align-items:center; justify-content:center;">
+      <span style="font-size:1.5em;">📋</span>
+    </button>
+
+    <!-- Modal para la lista de productos en móvil -->
+    <div id="mobileProductListModal" class="mobile-only" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.25); z-index:1300; align-items:center; justify-content:center;">
+      <div style="background:#fff; width:96vw; max-width:420px; margin:auto; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,0.18); padding:18px 10px 10px 10px; max-height:90vh; overflow-y:auto; position:relative;">
+        <button id="closeMobileProductListModal" style="position:absolute; top:10px; right:10px; background:none; border:none; font-size:1.5em; color:#007AFF;">✕</button>
+        <div id="mobileFilterSection"></div>
+        <div id="mobileProductListContainer"></div>
+      </div>
+    </div>
+
+    <!-- Overlay para sugerir orientación horizontal en móvil -->
+    <div id="rotateDeviceOverlay" style="display:none; position:fixed; z-index:2000; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); color:#fff; align-items:center; justify-content:center; text-align:center; font-size:1.3em;">
+      <div>
+        <div style="font-size:3em;">🔄</div>
+        Por favor, gira tu dispositivo para usar la aplicación en horizontal (modo escritorio).
+      </div>
+    </div>
+
+    <!-- Botón flotante solo visible en móvil -->
+    <button id="fabMenuBtn" class="fab-menu-btn" style="display:none;">
+      <span>☰</span>
+    </button>
+    <div id="fabMenu" class="fab-menu" style="display:none;">
+      <button id="fabAddProduct" class="btn-primary">+ Nuevo Producto</button>
+      <button id="fabNewPeriod" class="btn-secondary">Finalizar Período</button>
+      <button id="fabViewPeriods" class="btn-secondary financial-data">📅 Ver Períodos</button>
+    </div>
+
     <!-- Scripts -->
-    <script type="module" src="./script.js"></script>
+    <script src="tags.js"></script>
+    <script src="script.js"></script>
+
+    <script>
+    function createProductListItem(product) {
+        const item = document.createElement('div');
+        item.className = 'product-item';
+        item.dataset.id = product.id;
+        
+        item.innerHTML = `
+            <span class="product-name">${product.name}</span>
+            <span class="product-stock">${product.currentStock}</span>
+        `;
+        
+        return item;
+    }
+
+    // Función para mostrar el historial de períodos
+    function showPeriodsHistory() {
+        const periodsHistoryModal = document.getElementById('periodsHistoryModal');
+        const periodsList = document.getElementById('periodsList');
+        
+        periodsList.innerHTML = '';
+        
+        const allPeriods = new Set();
+        products.forEach(product => {
+            if (product.periods) {
+                Object.keys(product.periods).forEach(period => {
+                    if (period !== 'current') {
+                        allPeriods.add(period);
+                    }
+                });
+            }
+        });
+        
+        const sortedPeriods = Array.from(allPeriods).sort((a, b) => {
+            const [aStart, aEnd] = a.split('_');
+            const [bStart, bEnd] = b.split('_');
+            return new Date(bEnd) - new Date(aEnd);
+        });
+        
+        sortedPeriods.forEach(period => {
+            const [start, end] = period.split('_');
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+            
+            const periodElement = document.createElement('div');
+            periodElement.className = 'period-item';
+            
+            const periodStats = products.reduce((stats, product) => {
+                const periodData = product.periods[period] || {
+                    stockIn: 0,
+                    stockOut: 0,
+                    sales: 0,
+                    profit: 0,
+                    initialStock: 0
+                };
+                
+                stats.totalStockIn += periodData.stockIn;
+                stats.totalStockOut += periodData.stockOut;
+                stats.totalSales += periodData.sales;
+                stats.totalProfit += periodData.profit;
+                
+                return stats;
+            }, {
+                totalStockIn: 0,
+                totalStockOut: 0,
+                totalSales: 0,
+                totalProfit: 0
+            });
+            
+            periodElement.innerHTML = `
+                <div class="period-header">
+                    <h3>${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h3>
+                    <div class="period-actions">
+                        <button class="view-period-details" data-period="${period}">Ver Detalles</button>
+                        <button class="delete-period" data-period="${period}" title="Eliminar período">🗑️</button>
+                    </div>
+                </div>
+                <div class="period-summary">
+                    <div class="summary-item">
+                        <span>Entradas</span>
+                        <span>${periodStats.totalStockIn.toLocaleString('es-ES')}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Salidas</span>
+                        <span>${periodStats.totalStockOut.toLocaleString('es-ES')}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Ventas</span>
+                        <span>${formatNumber(periodStats.totalSales)}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Ganancia</span>
+                        <span>${formatNumber(periodStats.totalProfit)}</span>
+                    </div>
+                </div>
+                <div class="period-details" id="details-${period}" style="display: none;">
+                    <h4>Detalles por Producto</h4>
+                    <div class="product-period-list">
+                        ${products.map(product => {
+                            const periodData = product.periods[period] || {
+                                stockIn: 0,
+                                stockOut: 0,
+                                sales: 0,
+                                profit: 0,
+                                initialStock: 0,
+                                unitPrice: product.unitPrice,
+                                salePrice: product.salePrice
+                            };
+                            return `
+                                <div class="product-period-item">
+                                    <h5>${product.name}</h5>
+                                    <div class="product-period-stats">
+                                        <div class="stats-group">
+                                            <div class="stats-group-title">Información Inicial</div>
+                                            <div class="stat-item">
+                                                <span>Stock Inicial</span>
+                                                <span>${periodData.initialStock.toLocaleString('es-ES')}</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span>Precio Unitario</span>
+                                                <span>${formatNumber(periodData.unitPrice || product.unitPrice)}</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span>Precio de Venta</span>
+                                                <span>${formatNumber(periodData.salePrice || product.salePrice)}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="stats-group">
+                                            <div class="stats-group-title">Movimientos</div>
+                                            <div class="stat-item">
+                                                <span>Entradas</span>
+                                                <span>${periodData.stockIn.toLocaleString('es-ES')}</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span>Salidas</span>
+                                                <span>${periodData.stockOut.toLocaleString('es-ES')}</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span>Stock Final</span>
+                                                <span>${(periodData.initialStock + periodData.stockIn - periodData.stockOut).toLocaleString('es-ES')}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="stats-group">
+                                            <div class="stats-group-title">Resultados</div>
+                                            <div class="stat-item">
+                                                <span>Ventas</span>
+                                                <span>${formatNumber(periodData.sales)}</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span>Ganancia</span>
+                                                <span>${formatNumber(periodData.profit)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            
+            periodsList.appendChild(periodElement);
+        });
+        
+        periodsHistoryModal.style.display = 'block';
+        
+        document.querySelectorAll('.view-period-details').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const period = e.target.dataset.period;
+                const detailsElement = document.getElementById(`details-${period}`);
+                if (detailsElement.style.display === 'none') {
+                    detailsElement.style.display = 'block';
+                    e.target.textContent = 'Ocultar Detalles';
+                } else {
+                    detailsElement.style.display = 'none';
+                    e.target.textContent = 'Ver Detalles';
+                }
+            });
+        });
+
+        document.querySelectorAll('.delete-period').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const period = e.target.dataset.period;
+                deletePeriod(period);
+            });
+        });
+    }
+    </script>
 </body>
 </html> 

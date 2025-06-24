@@ -1,9 +1,10 @@
 // Global variables
 let products = [];
 let currentProductIndex = -1;
+let periods = [];
+let elements = null;
 let currentPeriod = 'current';
-let currentProduct = null;
-let lastPeriodEndDate = null;
+let selectedFilterTag = '';
 
 // DOM Elements
 let productList;
@@ -33,81 +34,120 @@ let statsPanel;
 let mainContainer;
 let viewInventoryBtn;
 
+// Login Logic
+const loginBtn = document.getElementById('loginBtn');
+const loginModal = document.getElementById('loginModal');
+const loginForm = document.getElementById('loginForm');
+const closeLoginModal = document.getElementById('closeLoginModal');
+const loginError = document.getElementById('loginError');
+const logoutBtn = document.getElementById('logoutBtn');
+
+function isLoggedIn() {
+  return localStorage.getItem('isAdmin') === 'true';
+}
+
+function showFinancialData(show) {
+  // Oculta o muestra los elementos financieros
+  const financials = document.querySelectorAll('.financial-data');
+  financials.forEach(el => {
+    el.style.display = show ? '' : 'none';
+  });
+}
+
 // Initialize DOM elements
 function initializeDOMElements() {
-    productList = document.getElementById('productList');
-    productDetails = document.getElementById('productDetails');
-    productModal = document.getElementById('productModal');
-    productForm = document.getElementById('productForm');
-    addProductBtn = document.getElementById('addProductBtn');
-    deleteProductBtn = document.getElementById('deleteProductBtn');
-    closeModalBtn = document.getElementById('closeModal');
-    prevProductBtn = document.getElementById('prevProduct');
-    nextProductBtn = document.getElementById('nextProduct');
-    periodSelect = document.getElementById('periodSelect');
-    newPeriodBtn = document.getElementById('newPeriodBtn');
-    stockIn = document.getElementById('stockIn');
-    stockOut = document.getElementById('stockOut');
-    addStockBtn = document.getElementById('addStockBtn');
-    removeStockBtn = document.getElementById('removeStockBtn');
-    productName = document.getElementById('productName');
-    unitPrice = document.getElementById('unitPrice');
-    salePrice = document.getElementById('salePrice');
-    currentStock = document.getElementById('currentStock');
-    productImage = document.getElementById('productImage');
-    totalInventoryValue = document.getElementById('totalInventoryValue');
-    totalProducts = document.getElementById('totalProducts');
-    totalPotentialProfit = document.getElementById('totalPotentialProfit');
-    statsPanel = document.getElementById('statsPanel');
-    mainContainer = document.getElementById('mainContainer');
-    viewInventoryBtn = document.getElementById('viewInventoryBtn');
+    console.log('Initializing DOM elements...');
+    const elements = {
+        productList: document.getElementById('productList'),
+        productDetails: document.getElementById('productDetails'),
+        productModal: document.getElementById('productModal'),
+        productForm: document.getElementById('productForm'),
+        statsPanel: document.getElementById('statsPanel'),
+        mainContainer: document.getElementById('mainContainer'),
+        viewInventoryBtn: document.getElementById('viewInventoryBtn'),
+        addProductBtn: document.getElementById('addProductBtn'),
+        newPeriodBtn: document.getElementById('newPeriodBtn'),
+        viewPeriodsBtn: document.getElementById('viewPeriodsBtn'),
+        closeModal: document.getElementById('closeModal'),
+        prevProduct: document.getElementById('prevProduct'),
+        nextProduct: document.getElementById('nextProduct'),
+        editImageBtn: document.getElementById('editImageBtn'),
+        imageInput: document.getElementById('imageInput'),
+        stockIn: document.getElementById('stockIn'),
+        stockOut: document.getElementById('stockOut'),
+        addStockBtn: document.getElementById('addStockBtn'),
+        removeStockBtn: document.getElementById('removeStockBtn'),
+        dateRangeModal: document.getElementById('dateRangeModal'),
+        startDate: document.getElementById('startDate'),
+        endDate: document.getElementById('endDate'),
+        confirmDateRange: document.getElementById('confirmDateRange'),
+        cancelDateRange: document.getElementById('cancelDateRange'),
+        periodsHistoryModal: document.getElementById('periodsHistoryModal'),
+        periodsList: document.getElementById('periodsList'),
+        closePeriodsHistory: document.getElementById('closePeriodsHistory'),
+        totalInventoryValue: document.getElementById('totalInventoryValue'),
+        totalProducts: document.getElementById('totalProducts'),
+        totalPotentialProfit: document.getElementById('totalPotentialProfit')
+    };
 
     // Verify essential elements
-    if (!productList || !productDetails || !productModal || !productForm) {
-        throw new Error('Essential DOM elements not found');
+    for (const [key, element] of Object.entries(elements)) {
+        if (!element) {
+            console.error(`Elemento no encontrado: ${key}`);
+            throw new Error(`Elemento esencial no encontrado: ${key}`);
+        }
     }
+
+    console.log('DOM elements initialized successfully');
+    return elements;
 }
 
 // Initialize the application
-async function init() {
+function init() {
+    console.log('Initializing application...');
+    
     try {
-        // Wait for DOM to be fully loaded
-        if (document.readyState === 'loading') {
-            await new Promise(resolve => {
-                document.addEventListener('DOMContentLoaded', resolve);
-            });
-        }
-
         // Initialize DOM elements
-        initializeDOMElements();
+        elements = initializeDOMElements();
 
-        // Cargar productos
-        await loadProducts();
+        // Load products
+        loadProducts();
         
-        // Configurar listeners y UI
-        setupEventListeners();
-        updatePeriodSelect();
+        // Setup event listeners
+        setupEventListeners(elements);
         
-        // Mostrar el primer producto si existe
+        // Setup keyboard navigation
+        setupKeyboardNavigation();
+        
+        // Update statistics
+        updateStats();
+        
+        // Show first product if exists
         if (products.length > 0) {
             selectProduct(0);
         }
         
-        console.log('Aplicación inicializada correctamente');
+        // Setup stock controls
+        setupStockControls();
+        
+        console.log('Application initialized successfully');
     } catch (error) {
-        console.error('Error al inicializar la aplicación:', error);
-        showDialog('Error', `Hubo un error al inicializar la aplicación: ${error.message}. Por favor, recargue la página.`);
+        console.error('Error initializing application:', error);
+        alert(`Error initializing application: ${error.message}. Please reload the page.`);
     }
 }
 
-// Función para formatear números con comas y sin decimales
+// Función para formatear números
 function formatNumber(number) {
-    return `$${Math.round(number).toLocaleString('es-ES')}`;
+    return '$' + Math.round(number || 0).toLocaleString('es-ES');
 }
 
 // Update statistics
-function updateStatistics() {
-    if (!totalInventoryValue || !totalProducts || !totalPotentialProfit) return;
+function updateStats() {
+    if (!elements.totalInventoryValue || !elements.totalProducts || !elements.totalPotentialProfit) {
+        console.error('Statistics elements not found');
+        return;
+    }
 
     const stats = products.reduce((acc, product) => {
         acc.totalValue += product.unitPrice * product.stock;
@@ -116,51 +156,52 @@ function updateStatistics() {
         return acc;
     }, { totalValue: 0, totalProducts: 0, potentialProfit: 0 });
 
-    totalInventoryValue.textContent = formatNumber(stats.totalValue);
-    totalProducts.textContent = stats.totalProducts.toLocaleString('es-ES');
-    totalPotentialProfit.textContent = formatNumber(stats.potentialProfit);
+    elements.totalInventoryValue.textContent = formatNumber(stats.totalValue);
+    elements.totalProducts.textContent = stats.totalProducts.toLocaleString('es-ES');
+    elements.totalPotentialProfit.textContent = formatNumber(stats.potentialProfit);
 }
 
-// Load products from localStorage
+// Load products from server
 async function loadProducts() {
     try {
-        const savedProducts = localStorage.getItem('products');
-        if (savedProducts) {
-            products = JSON.parse(savedProducts);
-            // Asegurarse de que cada producto tenga un objeto periods
-            products = products.map(product => ({
-                ...product,
-                periods: product.periods || { current: { stockIn: 0, stockOut: 0, sales: 0, profit: 0 } }
-            }));
-            console.log('Productos cargados exitosamente:', products);
-            updateProductList();
-            updateStatistics();
-            
-            // Seleccionar el primer producto si existe
-            if (products.length > 0) {
-                selectProduct(0);
+        console.log('Loading products from server...');
+        const response = await fetch('/products');
+        products = await response.json();
+        products = products.map(product => ({
+            ...product,
+            periods: product.periods || { 
+                current: { 
+                    stockIn: 0, 
+                    stockOut: 0, 
+                    sales: 0, 
+                    profit: 0,
+                    initialStock: product.stock || 0
+                } 
             }
-        } else {
-            console.log('No hay productos guardados');
-            products = [];
-            updateProductList();
-            updateStatistics();
-        }
+        }));
+        console.log('Products loaded successfully:', products);
+        loadFilterTags();
+        updateProductList();
+        updateStats();
     } catch (error) {
-        console.error('Error al cargar productos:', error);
-        showDialog('Error', 'No se pudieron cargar los productos. Por favor, recargue la página.');
+        console.error('Error loading products from server:', error);
+        throw new Error('Failed to load products from server');
     }
 }
 
-// Save products to localStorage
+// Save products to server
 async function saveProducts() {
     try {
-        localStorage.setItem('products', JSON.stringify(products));
-        console.log('Productos guardados exitosamente');
-        updateStatistics();
+        await fetch('/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(products)
+        });
+        console.log('Productos guardados exitosamente en el servidor');
+        updateStats();
     } catch (error) {
-        console.error('Error al guardar productos:', error);
-        showDialog('Error', 'No se pudieron guardar los productos. Por favor, intente nuevamente.');
+        console.error('Error al guardar productos en el servidor:', error);
+        showDialog('Error', 'No se pudieron guardar los productos en el servidor. Por favor, intente nuevamente.');
     }
 }
 
@@ -182,40 +223,34 @@ function loadPeriods(product) {
 
 // Update the product list in the sidebar
 function updateProductList() {
+    const productList = document.getElementById('productList');
+    if (!productList) return;
+
     productList.innerHTML = '';
     
-    products.forEach((product, index) => {
-        const productElement = document.createElement('div');
-        productElement.className = 'product-item';
-        if (index === currentProductIndex) {
-            productElement.classList.add('selected');
-        }
+    // Filtrar productos si hay una etiqueta seleccionada
+    const filteredProducts = selectedFilterTag 
+        ? products.filter(product => 
+            product.tags && product.tags.some(tag => tag.id === selectedFilterTag))
+        : products;
+    
+    filteredProducts.forEach((product, index) => {
+        const item = document.createElement('div');
+        item.className = 'product-item';
+        item.dataset.id = product.id;
         
-        productElement.innerHTML = `
-            <div class="product-info">
-                <span class="product-name">${product.name}</span>
-                <span class="product-stock">Stock: ${product.stock}</span>
-            </div>
-            <button class="delete-btn" title="Eliminar producto">🗑️</button>
+        const tagsHtml = product.tags ? product.tags.map(tag => `
+            <span class="product-tag" style="background-color: ${tag.color}">${tag.name}</span>
+        `).join('') : '';
+        
+        item.innerHTML = `
+            <span class="product-name">${product.name || ''}</span>
+            <span class="product-stock">${product.currentStock?.toLocaleString() || '0'}</span>
+            <div class="product-tags">${tagsHtml}</div>
         `;
         
-        // Add click event for selecting the product
-        productElement.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('delete-btn')) {
-                selectProduct(index);
-            }
-        });
-        
-        // Add click event for delete button
-        const deleteBtn = productElement.querySelector('.delete-btn');
-        deleteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (confirm('¿Está seguro que desea eliminar este producto?')) {
-                await deleteProduct(index);
-            }
-        });
-        
-        productList.appendChild(productElement);
+        item.addEventListener('click', () => selectProduct(products.findIndex(p => p.id === product.id)));
+        productList.appendChild(item);
     });
 }
 
@@ -224,103 +259,95 @@ function showDialog(title, message) {
     alert(`${title}\n${message}`);
 }
 
-function showEditDialog(message, currentValue) {
-    const dialog = document.getElementById('editDialog');
-    const messageElement = dialog.querySelector('.dialog-message');
-    const inputElement = dialog.querySelector('.dialog-input');
-    const confirmButton = dialog.querySelector('.dialog-confirm');
-    const cancelButton = dialog.querySelector('.dialog-cancel');
-    
-    messageElement.textContent = message;
-    inputElement.value = currentValue;
-    dialog.style.display = 'block';
-    inputElement.focus();
-    inputElement.select();
-    
+// Función para mostrar el diálogo de edición
+async function showEditDialog(message, currentValue) {
     return new Promise((resolve) => {
-        const handleConfirm = () => {
-            dialog.style.display = 'none';
-            resolve(inputElement.value);
-            cleanup();
-        };
-        
-        const handleCancel = () => {
-            dialog.style.display = 'none';
+        const dialog = document.createElement('div');
+        dialog.className = 'edit-dialog';
+        dialog.innerHTML = `
+            <div class="edit-dialog-content">
+                <h3>${message}</h3>
+                <input type="number" id="editValue" value="${currentValue.replace(/[^0-9.-]/g, '')}" step="0.01">
+                <div class="edit-dialog-buttons">
+                    <button class="btn-primary" id="confirmEdit">Guardar</button>
+                    <button class="btn-secondary" id="cancelEdit">Cancelar</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(dialog);
+
+        const input = dialog.querySelector('#editValue');
+        input.focus();
+        input.select();
+
+        dialog.querySelector('#confirmEdit').addEventListener('click', () => {
+            const newValue = input.value;
+            document.body.removeChild(dialog);
+            resolve(newValue);
+        });
+
+        dialog.querySelector('#cancelEdit').addEventListener('click', () => {
+            document.body.removeChild(dialog);
             resolve(null);
-            cleanup();
-        };
-        
-        const handleKeyPress = (e) => {
+        });
+
+        input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                handleConfirm();
+                dialog.querySelector('#confirmEdit').click();
             } else if (e.key === 'Escape') {
-                handleCancel();
+                dialog.querySelector('#cancelEdit').click();
             }
-        };
-        
-        const cleanup = () => {
-            confirmButton.removeEventListener('click', handleConfirm);
-            cancelButton.removeEventListener('click', handleCancel);
-            inputElement.removeEventListener('keydown', handleKeyPress);
-        };
-        
-        confirmButton.addEventListener('click', handleConfirm);
-        cancelButton.addEventListener('click', handleCancel);
-        inputElement.addEventListener('keydown', handleKeyPress);
+        });
     });
 }
 
 // Select a product to display its details
 function selectProduct(index) {
+    if (!elements.productDetails) {
+        console.error('Product details element not found');
+        return;
+    }
     currentProductIndex = index;
     const product = products[index];
-    
     if (product) {
-        // Agregar animación de transición
-        productDetails.classList.add('fade-out');
-        
+        elements.productDetails.classList.add('fade-out');
         setTimeout(() => {
-            productName.textContent = product.name;
-            unitPrice.textContent = formatNumber(product.unitPrice);
-            salePrice.textContent = formatNumber(product.salePrice);
-            currentStock.textContent = product.stock.toLocaleString('es-ES');
-            
-            // Actualizar la imagen del producto
-            const productImage = document.querySelector('#productImage img');
-            if (productImage) {
-                productImage.src = product.image;
-                productImage.onerror = function() {
-                    this.src = 'placeholder.svg';
-                };
+            const productName = elements.productDetails.querySelector('#productName');
+            const unitPrice = elements.productDetails.querySelector('#unitPrice');
+            const salePrice = elements.productDetails.querySelector('#salePrice');
+            const currentStock = elements.productDetails.querySelector('#currentStock');
+            if (productName) productName.textContent = product.name || '';
+            if (unitPrice) unitPrice.textContent = formatNumber(product.unitPrice || 0);
+            if (salePrice) salePrice.textContent = formatNumber(product.salePrice || 0);
+            if (currentStock) currentStock.textContent = (product.currentStock || 0).toLocaleString();
+            // Mostrar la imagen del producto correctamente
+            const productImageContainer = elements.productDetails.querySelector('#productImage');
+            if (productImageContainer) {
+                const img = productImageContainer.querySelector('img');
+                if (img) {
+                    img.src = product.image || 'placeholder.svg';
+                    img.alt = product.name || '';
+                    img.onerror = function() {
+                        this.src = 'placeholder.svg';
+                    };
+                }
             }
-
-            // Actualizar análisis financiero
             updateFinancialAnalysis(product);
-            
-            productDetails.style.display = 'block';
-            productDetails.classList.remove('fade-out');
-            productDetails.classList.add('fade-in');
+            elements.productDetails.style.display = 'block';
+            elements.productDetails.classList.remove('fade-out');
+            elements.productDetails.classList.add('fade-in');
         }, 300);
     } else {
-        productName.textContent = 'Seleccione un producto';
-        unitPrice.textContent = '$0';
-        salePrice.textContent = '$0';
-        currentStock.textContent = '0';
-        
-        // Resetear la imagen
-        const productImage = document.querySelector('#productImage img');
-        if (productImage) {
-            productImage.src = 'placeholder.svg';
-        }
-        
-        productDetails.style.display = 'none';
+        const productName = elements.productDetails.querySelector('#productName');
+        if (productName) productName.textContent = 'Seleccione un producto';
+        elements.productDetails.style.display = 'none';
     }
-    
     // Update selected state in list
-    document.querySelectorAll('.product-item').forEach((item, i) => {
+    const productItems = elements.productList.querySelectorAll('.product-item');
+    productItems.forEach((item, i) => {
         if (i === index) {
             item.classList.add('selected');
-            // Scroll al elemento seleccionado
             item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
             item.classList.remove('selected');
@@ -345,130 +372,135 @@ function updatePeriodInfo() {
 // Add a new product
 async function addProduct(productData) {
     try {
+        const initialStock = parseInt(productData.initialStock) || 0;
         const newProduct = {
             id: Date.now().toString(),
             name: productData.name,
             unitPrice: parseFloat(productData.unitPrice),
             salePrice: parseFloat(productData.salePrice),
-            stock: parseInt(productData.stock),
-            image: 'placeholder.svg',
+            stock: initialStock,
+            currentStock: initialStock,
+            image: productData.image || 'placeholder.svg',
+            tags: productData.tags || [],
             periods: {
                 current: {
-                    stockIn: 0,
+                    stockIn: initialStock,
                     stockOut: 0,
                     sales: 0,
-                    profit: 0
+                    profit: 0,
+                    initialStock: initialStock
                 }
             }
         };
-        
-        // Handle image if provided
-        const imageFile = productData.image;
-        if (imageFile && imageFile.size > 0) {
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                newProduct.image = e.target.result;
-                products.push(newProduct);
-                await saveProducts();
-                updateProductList();
-                selectProduct(products.length - 1);
-            };
-            reader.readAsDataURL(imageFile);
-        } else {
-            products.push(newProduct);
-            await saveProducts();
-            updateProductList();
-            selectProduct(products.length - 1);
-        }
-        
+        products.push(newProduct);
+        await saveProducts();
+        updateProductList();
+        selectProduct(products.length - 1);
         console.log('Producto agregado exitosamente');
     } catch (error) {
         console.error('Error al agregar producto:', error);
         showDialog('Error', 'No se pudo agregar el producto. Por favor, intente nuevamente.');
+        throw error;
     }
 }
 
 // Update product information
 function updateProduct(index, productData) {
+    const initialStock = parseInt(productData.initialStock) || 0;
     const updatedProduct = {
         ...products[index],
         name: productData.name,
         unitPrice: parseFloat(productData.unitPrice),
         salePrice: parseFloat(productData.salePrice),
-        stock: parseInt(productData.stock)
+        stock: initialStock,
+        currentStock: initialStock,
+        image: productData.image || products[index].image
     };
-    
-    // Handle image if provided
-    const imageFile = productData.image;
-    if (imageFile && imageFile.size > 0) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            updatedProduct.image = e.target.result;
-            products[index] = updatedProduct;
-            saveProducts();
-            updateProductList();
-            selectProduct(index);
-        };
-        reader.readAsDataURL(imageFile);
-    } else {
-        products[index] = updatedProduct;
-        saveProducts();
-        updateProductList();
-        selectProduct(index);
-    }
+    products[index] = updatedProduct;
+    saveProducts();
+    updateProductList();
+    selectProduct(index);
 }
 
-// Add stock to a product
+// Función para agregar stock
 function addStock(amount) {
-    if (currentProductIndex === -1) return;
+    if (currentProductIndex === -1) {
+        alert('Por favor seleccione un producto primero');
+        return;
+    }
     
     const product = products[currentProductIndex];
-    product.stock += amount;
+    if (!product) return;
+
+    // Actualizar stock actual
+    product.currentStock = (product.currentStock || 0) + amount;
     
-    if (!product.periods[currentPeriod]) {
-        product.periods[currentPeriod] = {
+    // Actualizar período actual
+    if (!product.periods) {
+        product.periods = {};
+    }
+    if (!product.periods.current) {
+        product.periods.current = {
             stockIn: 0,
             stockOut: 0,
             sales: 0,
-            profit: 0
+            profit: 0,
+            initialStock: product.currentStock
         };
     }
     
-    product.periods[currentPeriod].stockIn += amount;
+    product.periods.current.stockIn = (product.periods.current.stockIn || 0) + amount;
+    
+    // Guardar cambios
     saveProducts();
     updateProductList();
     selectProduct(currentProductIndex);
     updateFinancialAnalysis(product);
 }
 
-// Remove stock from a product
+// Función para remover stock
 function removeStock(amount) {
-    if (currentProductIndex === -1) return;
-    
-    const product = products[currentProductIndex];
-    if (product.stock < amount) {
-        alert('No hay suficiente stock disponible');
+    if (currentProductIndex === -1) {
+        alert('Por favor seleccione un producto primero');
         return;
     }
     
-    product.stock -= amount;
+    const product = products[currentProductIndex];
+    if (!product) return;
+
+    // Verificar si hay suficiente stock
+    if ((product.currentStock || 0) < amount) {
+        alert('No hay suficiente stock disponible');
+        return;
+    }
+
+    // Actualizar stock actual
+    product.currentStock = (product.currentStock || 0) - amount;
     
-    if (!product.periods[currentPeriod]) {
-        product.periods[currentPeriod] = {
+    // Actualizar período actual
+    if (!product.periods) {
+        product.periods = {};
+    }
+    if (!product.periods.current) {
+        product.periods.current = {
             stockIn: 0,
             stockOut: 0,
             sales: 0,
-            profit: 0
+            profit: 0,
+            initialStock: product.currentStock
         };
     }
     
-    const saleAmount = amount * product.salePrice;
-    const profitAmount = amount * (product.salePrice - product.unitPrice);
+    // Calcular ventas y ganancias
+    const saleAmount = amount * (product.salePrice || 0);
+    const costAmount = amount * (product.unitPrice || 0);
+    const profitAmount = saleAmount - costAmount;
     
-    product.periods[currentPeriod].stockOut += amount;
-    product.periods[currentPeriod].sales += saleAmount;
-    product.periods[currentPeriod].profit += profitAmount;
+    product.periods.current.stockOut = (product.periods.current.stockOut || 0) + amount;
+    product.periods.current.sales = (product.periods.current.sales || 0) + saleAmount;
+    product.periods.current.profit = (product.periods.current.profit || 0) + profitAmount;
     
+    // Guardar cambios
     saveProducts();
     updateProductList();
     selectProduct(currentProductIndex);
@@ -491,6 +523,37 @@ function getLastPeriodEndDate() {
 // Función para formatear fecha
 function formatDate(date) {
     return date.toISOString().split('T')[0];
+}
+
+// Función para mostrar notificación estilo iOS/macOS
+function showNotification(message, duration = 2000) {
+    // Crear el elemento de notificación si no existe
+    let notification = document.querySelector('.notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.innerHTML = `
+            <div class="notification-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                </svg>
+            </div>
+            <span>${message}</span>
+        `;
+        document.body.appendChild(notification);
+    } else {
+        notification.querySelector('span').textContent = message;
+    }
+
+    // Mostrar la notificación
+    requestAnimationFrame(() => {
+        notification.classList.add('show');
+    });
+
+    // Ocultar la notificación después del tiempo especificado
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, duration);
 }
 
 // Función para crear nuevo período
@@ -536,15 +599,47 @@ async function createNewPeriod() {
             
             // Guardar el stock actual como stock inicial para el nuevo período
             products.forEach(product => {
-                if (!product.periods[periodName]) {
+                // Guardar el período actual antes de crear el nuevo
+                if (product.periods['current']) {
+                    const currentPeriodData = product.periods['current'];
+                    const finalStock = product.currentStock || 0;
+                    
+                    // Calcular estadísticas adicionales
+                    const totalStockInPeriod = (currentPeriodData.initialStock || 0) + (currentPeriodData.stockIn || 0);
+                    const totalStockOutPeriod = currentPeriodData.stockOut || 0;
+                    const remainingStock = finalStock;
+                    
+                    // Guardar el período actual con sus datos completos
                     product.periods[periodName] = {
+                        stockIn: currentPeriodData.stockIn || 0,
+                        stockOut: currentPeriodData.stockOut || 0,
+                        sales: currentPeriodData.sales || 0,
+                        profit: currentPeriodData.profit || 0,
+                        startDate: startDate.toISOString(),
+                        endDate: endDate.toISOString(),
+                        initialStock: currentPeriodData.initialStock || 0,
+                        finalStock: finalStock,
+                        // Información adicional del período
+                        totalStockInPeriod: totalStockInPeriod,
+                        totalStockOutPeriod: totalStockOutPeriod,
+                        remainingStock: remainingStock,
+                        productName: product.name,
+                        unitPrice: product.unitPrice,
+                        salePrice: product.salePrice
+                    };
+                    
+                    // Reiniciar el período actual con el stock final del período anterior como inicial
+                    product.periods['current'] = {
                         stockIn: 0,
                         stockOut: 0,
                         sales: 0,
                         profit: 0,
-                        startDate: startDate.toISOString(),
-                        endDate: endDate.toISOString()
+                        initialStock: finalStock,
+                        startDate: new Date().toISOString()
                     };
+
+                    // Asegurarse de que el stock actual se mantenga
+                    product.currentStock = finalStock;
                 }
             });
             
@@ -553,7 +648,16 @@ async function createNewPeriod() {
             selectProduct(currentProductIndex);
             saveProducts();
             
+            // Actualizar la vista para mostrar las estadísticas reseteadas
+            if (currentProductIndex !== -1) {
+                updateFinancialAnalysis(products[currentProductIndex]);
+            }
+            
             dateRangeModal.style.display = 'none';
+            
+            // Mostrar notificación de éxito
+            showNotification('Período guardado exitosamente');
+            
             resolve();
         };
         
@@ -633,106 +737,218 @@ async function deleteProduct(index) {
 }
 
 // Setup event listeners
-function setupEventListeners() {
-    // Add product button
-    if (addProductBtn) {
-        addProductBtn.addEventListener('click', () => {
-            const productModal = document.getElementById('productModal');
-            if (productModal) {
-                productModal.style.display = 'block';
-            }
-        });
-    }
-    
-    // Close modal button
-    if (closeModalBtn) {
-        closeModalBtn.addEventListener('click', () => {
-            const productModal = document.getElementById('productModal');
-            if (productModal) {
-                productModal.style.display = 'none';
-            }
-        });
-    }
-    
-    // Product form submission
-    if (productForm) {
-        productForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(productForm);
-            const productData = {
-                name: formData.get('productName'),
-                unitPrice: formData.get('unitPrice'),
-                salePrice: formData.get('salePrice'),
-                stock: formData.get('initialStock'),
-                image: formData.get('productImage')
-            };
+function setupEventListeners(elements) {
+    console.log('Setting up event listeners...');
+
+    // View Inventory button
+    if (elements.viewInventoryBtn) {
+        elements.viewInventoryBtn.addEventListener('click', () => {
+            console.log('View Inventory button clicked');
+            elements.statsPanel.style.display = 'none';
+            elements.mainContainer.style.display = 'flex';
             
-            await addProduct(productData);
-            const productModal = document.getElementById('productModal');
-            if (productModal) {
-                productModal.style.display = 'none';
+            // Add back to analytics button if it doesn't exist
+            if (!document.getElementById('backToStatsBtn')) {
+                const backToStatsBtn = document.createElement('button');
+                backToStatsBtn.id = 'backToStatsBtn';
+                backToStatsBtn.className = 'btn-primary back-to-stats';
+                backToStatsBtn.innerHTML = '📊 Volver a Analíticas';
+                backToStatsBtn.style.position = 'fixed';
+                backToStatsBtn.style.top = '20px';
+                backToStatsBtn.style.right = '20px';
+                backToStatsBtn.style.zIndex = '1000';
+                document.body.appendChild(backToStatsBtn);
+
+                backToStatsBtn.addEventListener('click', () => {
+                    elements.mainContainer.style.display = 'none';
+                    elements.statsPanel.style.display = 'block';
+                    updateBackToStatsBtn();
+                });
             }
-            productForm.reset();
+
+            if (products.length > 0 && currentProductIndex === -1) {
+                selectProduct(0);
+            }
+            updateProductList();
+            updateStats();
         });
     }
-    
+
+    // Add product button
+    if (elements.addProductBtn) {
+        elements.addProductBtn.addEventListener('click', () => {
+            console.log('Add Product button clicked');
+            elements.productForm.reset();
+            elements.productModal.style.display = 'block';
+        });
+    }
+
+    // Close modal button
+    if (elements.closeModal) {
+        elements.closeModal.addEventListener('click', () => {
+            console.log('Close Modal button clicked');
+            elements.productModal.style.display = 'none';
+        });
+    }
+
+    // Product form submission
+    if (elements.productForm) {
+        elements.productForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('Product form submitted');
+            
+            try {
+                const formData = new FormData(elements.productForm);
+                const imageFile = formData.get('productImage');
+                let imageUrl = null;
+                // Si estamos editando un producto existente
+                const editId = elements.productForm.dataset.editId;
+                if (editId) {
+                    const index = products.findIndex(p => p.id === editId);
+                    if (index !== -1) {
+                        // Si se seleccionó una nueva imagen, subirla
+                        if (imageFile && imageFile.size > 0) {
+                            const uploadData = new FormData();
+                            uploadData.append('image', imageFile);
+                            const response = await fetch('/upload-image', { method: 'POST', body: uploadData });
+                            const result = await response.json();
+                            if (!result.success || !result.url) {
+                                showDialog('Error', 'No se pudo subir la imagen.');
+                                return;
+                            }
+                            imageUrl = result.url;
+                        } else {
+                            // Mantener la imagen actual
+                            imageUrl = products[index].image;
+                        }
+                        const productData = {
+                            name: formData.get('productName'),
+                            unitPrice: parseFloat(formData.get('unitPrice')),
+                            salePrice: parseFloat(formData.get('salePrice')),
+                            initialStock: parseInt(formData.get('initialStock')),
+                            image: imageUrl,
+                            tags: getSelectedTags()
+                        };
+                        updateProduct(index, productData);
+                    }
+                } else {
+                    // Si es un nuevo producto
+                    if (!imageFile || imageFile.size === 0) {
+                        showDialog('Error', 'Debes seleccionar una imagen.');
+                        return;
+                    }
+                    // Subir imagen al servidor
+                    const uploadData = new FormData();
+                    uploadData.append('image', imageFile);
+                    const response = await fetch('/upload-image', { method: 'POST', body: uploadData });
+                    const result = await response.json();
+                    if (!result.success || !result.url) {
+                        showDialog('Error', 'No se pudo subir la imagen.');
+                        return;
+                    }
+                    const productData = {
+                        name: formData.get('productName'),
+                        unitPrice: parseFloat(formData.get('unitPrice')),
+                        salePrice: parseFloat(formData.get('salePrice')),
+                        initialStock: parseInt(formData.get('initialStock')),
+                        image: result.url,
+                        tags: getSelectedTags()
+                    };
+                    await addProduct(productData);
+                }
+
+                // Cerrar el modal y limpiar el formulario
+                elements.productModal.style.display = 'none';
+                elements.productForm.reset();
+                clearSelectedTags();
+                
+                // Actualizar la lista de productos y estadísticas
+                updateProductList();
+                updateStats();
+                
+            } catch (error) {
+                console.error('Error al guardar el producto:', error);
+                showDialog('Error', 'No se pudo guardar el producto. Por favor, intente nuevamente.');
+            }
+        });
+    }
+
+    // Stock controls
+    if (elements.addStockBtn && elements.stockIn) {
+        elements.addStockBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevenir el comportamiento por defecto del botón
+            const inputValue = elements.stockIn.value;
+            console.log('Raw input value:', inputValue);
+            const amount = parseInt(inputValue, 10);
+            console.log('Parsed amount:', amount);
+            
+            if (!isNaN(amount) && amount > 0) {
+                addStock(amount);
+                elements.stockIn.value = '';
+            } else {
+                alert('Por favor ingrese una cantidad mayor a 0');
+            }
+        });
+    }
+
+    if (elements.removeStockBtn && elements.stockOut) {
+        elements.removeStockBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevenir el comportamiento por defecto del botón
+            const inputValue = elements.stockOut.value;
+            console.log('Raw input value:', inputValue);
+            const amount = parseInt(inputValue, 10);
+            console.log('Parsed amount:', amount);
+            
+            if (!isNaN(amount) && amount > 0) {
+                removeStock(amount);
+                elements.stockOut.value = '';
+            } else {
+                alert('Por favor ingrese una cantidad mayor a 0');
+            }
+        });
+    }
+
     // Navigation buttons
-    if (prevProductBtn) {
-        prevProductBtn.addEventListener('click', () => {
+    if (elements.prevProduct) {
+        elements.prevProduct.addEventListener('click', () => {
             if (currentProductIndex > 0) {
                 selectProduct(currentProductIndex - 1);
             }
         });
     }
-    
-    if (nextProductBtn) {
-        nextProductBtn.addEventListener('click', () => {
+
+    if (elements.nextProduct) {
+        elements.nextProduct.addEventListener('click', () => {
             if (currentProductIndex < products.length - 1) {
                 selectProduct(currentProductIndex + 1);
             }
         });
     }
-    
-    // Period selection
-    if (periodSelect) {
-        periodSelect.addEventListener('change', (e) => {
-            currentPeriod = e.target.value;
-            selectProduct(currentProductIndex);
-        });
-    }
-    
+
     // New period button
-    if (newPeriodBtn) {
-        newPeriodBtn.addEventListener('click', createNewPeriod);
+    if (elements.newPeriodBtn) {
+        elements.newPeriodBtn.addEventListener('click', createNewPeriod);
     }
-    
-    // Stock controls
-    if (addStockBtn) {
-        addStockBtn.addEventListener('click', () => {
-            const stockIn = document.getElementById('stockIn');
-            if (stockIn) {
-                const amount = parseInt(stockIn.value);
-                if (amount > 0) {
-                    addStock(amount);
-                    stockIn.value = '';
-                }
-            }
+
+    // View periods button
+    if (elements.viewPeriodsBtn) {
+        elements.viewPeriodsBtn.addEventListener('click', showPeriodsHistory);
+    }
+
+    // Botón de reset
+    const resetDataBtn = document.getElementById('resetDataBtn');
+    if (resetDataBtn) {
+        resetDataBtn.addEventListener('click', resetDatabase);
+    }
+
+    // Agregar el evento para el selector de etiquetas de filtro
+    const filterTagSelect = document.getElementById('filterTagSelect');
+    if (filterTagSelect) {
+        filterTagSelect.addEventListener('change', (e) => {
+            filterProductsByTag(e.target.value);
         });
     }
-    
-    if (removeStockBtn) {
-        removeStockBtn.addEventListener('click', () => {
-            const stockOut = document.getElementById('stockOut');
-            if (stockOut) {
-                const amount = parseInt(stockOut.value);
-                if (amount > 0) {
-                    removeStock(amount);
-                    stockOut.value = '';
-                }
-            }
-        });
-    }
-    
+
     // Edit buttons
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -752,93 +968,296 @@ function setupEventListeners() {
                                 product.salePrice = parseFloat(newValue);
                                 break;
                             case 'currentStock':
-                                product.stock = parseInt(newValue);
+                                product.currentStock = parseInt(newValue);
                                 break;
                         }
                         saveProducts();
                         selectProduct(currentProductIndex);
+                        updateFinancialAnalysis(product);
                     }
                 }
             }
         });
     });
-    
-    // Delete product button
-    if (deleteProductBtn) {
-        deleteProductBtn.addEventListener('click', () => {
-            if (currentProductIndex !== -1) {
-                deleteProduct(currentProductIndex);
-            }
-        });
-    }
-    
-    // Setup keyboard navigation
-    setupKeyboardNavigation();
-    
-    // Setup image edit
-    setupImageEdit();
 
-    // Image preview
-    const productImageInput = document.getElementById('productImageInput');
-    if (productImageInput) {
-        productImageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.querySelector('#productImage img');
-                    if (preview) {
-                        preview.src = e.target.result;
-                    }
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
+    console.log('Event listeners setup completed');
+}
 
-    // View Inventory button
-    if (viewInventoryBtn) {
-        viewInventoryBtn.addEventListener('click', () => {
-            statsPanel.style.display = 'none';
-            mainContainer.style.display = 'flex';
-            // Asegurarse de que se muestre el primer producto al entrar al inventario
-            if (products.length > 0 && currentProductIndex === -1) {
-                selectProduct(0);
-            }
-        });
-    }
-
-    // Add button to return to stats
-    const addStatsButton = () => {
-        const backToStatsBtn = document.createElement('button');
-        backToStatsBtn.className = 'btn-secondary back-to-stats';
-        backToStatsBtn.innerHTML = '📊 Ver Estadísticas';
-        backToStatsBtn.style.position = 'fixed';
-        backToStatsBtn.style.top = '20px';
-        backToStatsBtn.style.right = '20px';
-        backToStatsBtn.style.zIndex = '1000';
-        backToStatsBtn.style.padding = '12px 24px';
-        backToStatsBtn.style.fontSize = '1.1em';
-        backToStatsBtn.style.backgroundColor = 'white';
-        backToStatsBtn.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+// Función para mostrar el historial de períodos
+function showPeriodsHistory() {
+    const periodsHistoryModal = document.getElementById('periodsHistoryModal');
+    const periodsList = document.getElementById('periodsList');
+    
+    // Limpiar la lista actual
+    periodsList.innerHTML = '';
+    
+    // Obtener todos los períodos únicos de todos los productos
+    const allPeriods = new Set();
+    products.forEach(product => {
+        if (product.periods) {
+            Object.keys(product.periods).forEach(period => {
+                if (period !== 'current') {
+                    allPeriods.add(period);
+                }
+            });
+        }
+    });
+    
+    // Convertir a array y ordenar por fecha (más reciente primero)
+    const sortedPeriods = Array.from(allPeriods).sort((a, b) => {
+        const [aStart, aEnd] = a.split('_');
+        const [bStart, bEnd] = b.split('_');
+        return new Date(bEnd) - new Date(aEnd);
+    });
+    
+    // Crear elementos para cada período
+    sortedPeriods.forEach(period => {
+        const [start, end] = period.split('_');
+        const startDate = new Date(start);
+        const endDate = new Date(end);
         
-        backToStatsBtn.addEventListener('click', () => {
-            mainContainer.style.display = 'none';
-            statsPanel.style.display = 'flex';
-            updateStatistics();
+        const periodElement = document.createElement('div');
+        periodElement.className = 'period-item';
+        
+        // Calcular estadísticas totales para este período
+        const periodStats = products.reduce((stats, product) => {
+            const periodData = product.periods[period] || {
+                stockIn: 0,
+                stockOut: 0,
+                sales: 0,
+                profit: 0,
+                initialStock: 0
+            };
+            
+            stats.totalStockIn += periodData.stockIn;
+            stats.totalStockOut += periodData.stockOut;
+            stats.totalSales += periodData.sales;
+            stats.totalProfit += periodData.profit;
+            
+            return stats;
+        }, {
+            totalStockIn: 0,
+            totalStockOut: 0,
+            totalSales: 0,
+            totalProfit: 0
         });
         
-        document.body.appendChild(backToStatsBtn);
+        periodElement.innerHTML = `
+            <div class="period-header">
+                <h3>${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h3>
+                <div class="period-actions">
+                    <button class="btn-secondary view-period-details" data-period="${period}">Ver Detalles</button>
+                    <button class="btn-danger delete-period" data-period="${period}" title="Eliminar período">🗑️</button>
+                </div>
+            </div>
+            <div class="period-summary">
+                <div class="summary-item">
+                    <span>Entradas:</span>
+                    <span>${periodStats.totalStockIn.toLocaleString('es-ES')}</span>
+                </div>
+                <div class="summary-item">
+                    <span>Salidas:</span>
+                    <span>${periodStats.totalStockOut.toLocaleString('es-ES')}</span>
+                </div>
+                <div class="summary-item">
+                    <span>Ventas Totales:</span>
+                    <span>${formatNumber(periodStats.totalSales)}</span>
+                </div>
+                <div class="summary-item">
+                    <span>Ganancia Total:</span>
+                    <span>${formatNumber(periodStats.totalProfit)}</span>
+                </div>
+            </div>
+            <div class="period-details" id="details-${period}" style="display: none;">
+                <h4>Detalles por Producto</h4>
+                <div class="product-period-list">
+                    ${products.map(product => {
+                        const periodData = product.periods[period] || {
+                            stockIn: 0,
+                            stockOut: 0,
+                            sales: 0,
+                            profit: 0,
+                            initialStock: 0,
+                            unitPrice: product.unitPrice,
+                            salePrice: product.salePrice
+                        };
+                        return `
+                            <div class="product-period-item">
+                                <h5>${product.name}</h5>
+                                <div class="product-period-stats">
+                                    <div class="stats-group">
+                                        <div class="stats-group-title">Información Inicial</div>
+                                        <div class="stat-item">
+                                            <span>Stock Inicial:</span>
+                                            <span>${periodData.initialStock.toLocaleString('es-ES')}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>Precio Unitario:</span>
+                                            <span>${formatNumber(periodData.unitPrice || product.unitPrice)}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>Precio de Venta:</span>
+                                            <span>${formatNumber(periodData.salePrice || product.salePrice)}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="stats-group">
+                                        <div class="stats-group-title">Movimientos</div>
+                                        <div class="stat-item">
+                                            <span>Entradas:</span>
+                                            <span>${periodData.stockIn.toLocaleString('es-ES')}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>Salidas:</span>
+                                            <span>${periodData.stockOut.toLocaleString('es-ES')}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>Stock Final:</span>
+                                            <span>${(periodData.initialStock + periodData.stockIn - periodData.stockOut).toLocaleString('es-ES')}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="stats-group">
+                                        <div class="stats-group-title">Resultados</div>
+                                        <div class="stat-item">
+                                            <span>Ventas:</span>
+                                            <span>${formatNumber(periodData.sales)}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>Ganancia:</span>
+                                            <span>${formatNumber(periodData.profit)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+        
+        periodsList.appendChild(periodElement);
+    });
+    
+    // Mostrar el modal
+    periodsHistoryModal.style.display = 'block';
+    
+    // Agregar event listeners para los botones de detalles
+    document.querySelectorAll('.view-period-details').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const period = e.target.dataset.period;
+            const detailsElement = document.getElementById(`details-${period}`);
+            if (detailsElement.style.display === 'none') {
+                detailsElement.style.display = 'block';
+                e.target.textContent = 'Ocultar Detalles';
+            } else {
+                detailsElement.style.display = 'none';
+                e.target.textContent = 'Ver Detalles';
+            }
+        });
+    });
+
+    // Agregar event listeners para los botones de eliminar
+    document.querySelectorAll('.delete-period').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const period = e.target.dataset.period;
+            deletePeriod(period);
+        });
+    });
+}
+
+// Función para eliminar un período
+async function deletePeriod(periodName) {
+    if (!confirm('¿Está seguro que desea eliminar este período? Esta acción no se puede deshacer.')) {
+        return;
+    }
+
+    try {
+        // Eliminar el período de todos los productos
+        products.forEach(product => {
+            if (product.periods[periodName]) {
+                delete product.periods[periodName];
+            }
+        });
+
+        // Guardar los cambios
+        await saveProducts();
+        
+        // Actualizar la vista
+        showPeriodsHistory();
+        
+        console.log('Período eliminado exitosamente');
+    } catch (error) {
+        console.error('Error al eliminar período:', error);
+        showDialog('Error', 'No se pudo eliminar el período. Por favor, intente nuevamente.');
+    }
+}
+
+// Event Listeners
+document.getElementById('viewPeriodsBtn').addEventListener('click', showPeriodsHistory);
+document.getElementById('closePeriodsHistory').addEventListener('click', () => {
+    document.getElementById('periodsHistoryModal').style.display = 'none';
+});
+
+// Initialize the application when the DOM is loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
+// Update financial analysis for a product
+function updateFinancialAnalysis(product) {
+    if (!product) return;
+
+    const currentPeriod = product.periods?.current || {
+        stockIn: 0,
+        stockOut: 0,
+        sales: 0,
+        profit: 0,
+        initialStock: 0
     };
 
-    addStatsButton();
+    // Calcular valores financieros
+    const totalCostPrice = (product.unitPrice || 0) * (product.currentStock || 0);
+    const stockValue = (product.salePrice || 0) * (product.currentStock || 0);
+    const potentialProfit = stockValue - totalCostPrice;
+
+    // Actualizar elementos de la interfaz
+    const elements = {
+        totalCostPrice: document.getElementById('totalCostPrice'),
+        stockValue: document.getElementById('stockValue'),
+        potentialProfit: document.getElementById('potentialProfit'),
+        initialStock: document.getElementById('initialStock'),
+        addedStock: document.getElementById('addedStock'),
+        soldStock: document.getElementById('soldStock'),
+        totalStockPeriod: document.getElementById('totalStockPeriod'),
+        finalStock: document.getElementById('finalStock'),
+        totalSalesValue: document.getElementById('totalSalesValue'),
+        totalProfit: document.getElementById('totalProfit')
+    };
+
+    // Actualizar valores con verificaciones de null
+    if (elements.totalCostPrice) elements.totalCostPrice.textContent = formatNumber(totalCostPrice);
+    if (elements.stockValue) elements.stockValue.textContent = formatNumber(stockValue);
+    if (elements.potentialProfit) elements.potentialProfit.textContent = formatNumber(potentialProfit);
+    if (elements.initialStock) elements.initialStock.textContent = (currentPeriod.initialStock || 0).toLocaleString();
+    if (elements.addedStock) elements.addedStock.textContent = (currentPeriod.stockIn || 0).toLocaleString();
+    if (elements.soldStock) elements.soldStock.textContent = (currentPeriod.stockOut || 0).toLocaleString();
+    if (elements.totalStockPeriod) {
+        const totalStockPeriod = (currentPeriod.stockIn || 0) + (currentPeriod.stockOut || 0);
+        elements.totalStockPeriod.textContent = totalStockPeriod.toLocaleString();
+    }
+    if (elements.finalStock) elements.finalStock.textContent = (product.currentStock || 0).toLocaleString();
+    if (elements.totalSalesValue) elements.totalSalesValue.textContent = formatNumber(currentPeriod.sales || 0);
+    if (elements.totalProfit) elements.totalProfit.textContent = formatNumber(currentPeriod.profit || 0);
 }
 
 // Setup keyboard navigation
 function setupKeyboardNavigation() {
     document.addEventListener('keydown', (e) => {
         // Solo procesar las teclas si estamos en el inventario
-        if (mainContainer.style.display === 'none') return;
+        if (elements.mainContainer.style.display === 'none') return;
 
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
             e.preventDefault();
@@ -856,130 +1275,610 @@ function setupKeyboardNavigation() {
             if (e.key === 'ArrowLeft') {
                 newIndex = Math.max(0, currentIndex - 1);
                 // Agregar efecto visual para la flecha izquierda
-                prevProductBtn.classList.add('active');
-                setTimeout(() => prevProductBtn.classList.remove('active'), 200);
+                const prevBtn = document.getElementById('prevProduct');
+                if (prevBtn) {
+                    prevBtn.classList.add('active');
+                    setTimeout(() => prevBtn.classList.remove('active'), 200);
+                }
             } else {
                 newIndex = Math.min(items.length - 1, currentIndex + 1);
                 // Agregar efecto visual para la flecha derecha
-                nextProductBtn.classList.add('active');
-                setTimeout(() => nextProductBtn.classList.remove('active'), 200);
+                const nextBtn = document.getElementById('nextProduct');
+                if (nextBtn) {
+                    nextBtn.classList.add('active');
+                    setTimeout(() => nextBtn.classList.remove('active'), 200);
+                }
             }
             
-            selectProduct(newIndex);
-            items[newIndex].focus();
-            
-            // Mostrar indicador de navegación
-            showNavigationIndicator(e.key === 'ArrowLeft' ? '←' : '→');
+            if (newIndex !== currentIndex) {
+                selectProduct(newIndex);
+                items[newIndex].focus();
+                
+                // Mostrar indicador de navegación
+                showNavigationIndicator(e.key === 'ArrowLeft' ? '←' : '→');
+            }
         }
     });
 }
 
-// Función para mostrar indicador de navegación
+// Función para mostrar el indicador de navegación
 function showNavigationIndicator(direction) {
-    // Remover indicador existente si hay uno
-    const existingIndicator = document.querySelector('.navigation-indicator');
-    if (existingIndicator) {
-        existingIndicator.remove();
+    let indicator = document.querySelector('.navigation-indicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.className = 'navigation-indicator';
+        document.body.appendChild(indicator);
     }
-
-    // Crear nuevo indicador
-    const indicator = document.createElement('div');
-    indicator.className = 'navigation-indicator';
+    
     indicator.textContent = direction;
-    document.body.appendChild(indicator);
-
-    // Animar y remover el indicador
+    indicator.classList.remove('fade-out');
+    
     setTimeout(() => {
         indicator.classList.add('fade-out');
-        setTimeout(() => indicator.remove(), 500);
-    }, 500);
+    }, 300);
 }
 
-// Edit image
-function setupImageEdit() {
-    const editImageBtn = document.getElementById('editImageBtn');
-    const imageInput = document.getElementById('imageInput');
+// Modificar la función createProductListItem para incluir etiquetas
+function createProductListItem(product) {
+    const item = document.createElement('div');
+    item.className = 'product-item';
+    item.dataset.id = product.id;
     
-    editImageBtn.addEventListener('click', () => {
-        imageInput.click();
-    });
+    const tagsHtml = product.tags ? product.tags.map(tag => `
+        <span class="product-tag" style="background-color: ${tag.color}">${tag.name}</span>
+    `).join('') : '';
     
-    imageInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const product = products[currentProductIndex];
-                product.image = e.target.result;
-                saveProducts();
-                selectProduct(currentProductIndex);
-            };
-            reader.readAsDataURL(file);
+    item.innerHTML = `
+        <span class="product-name">${product.name}</span>
+        <span class="product-stock">${product.currentStock}</span>
+        <div class="product-tags">${tagsHtml}</div>
+    `;
+    
+    return item;
+}
+
+// Modificar la función para guardar un producto
+function saveProduct(productData) {
+    const product = {
+        ...productData,
+        id: productData.id || Date.now().toString(),
+        tags: getSelectedTags(),
+        currentStock: parseInt(productData.initialStock) || 0,
+        periods: productData.periods || {
+            current: {
+                stockIn: 0,
+                stockOut: 0,
+                sales: 0,
+                profit: 0,
+                initialStock: parseInt(productData.initialStock) || 0
+            }
         }
-    });
+    };
+
+    const index = products.findIndex(p => p.id === product.id);
+    if (index !== -1) {
+        products[index] = product;
+    } else {
+        products.push(product);
+    }
+
+    localStorage.setItem('products', JSON.stringify(products));
+    updateProductList();
+    clearSelectedTags();
 }
 
-// Función para mostrar detalles del producto
-function showProductDetails(product) {
-    currentProduct = product;
+// Modificar la función para cargar un producto
+function loadProduct(productId) {
+    const product = products.find(p => p.id === productId);
     if (product) {
-        productName.textContent = product.name;
-        unitPrice.textContent = formatNumber(product.unitPrice);
-        salePrice.textContent = formatNumber(product.salePrice);
-        currentStock.textContent = product.stock.toLocaleString('es-ES');
-        productImage.src = product.image || 'placeholder.svg';
-        productDetails.style.display = 'block';
-    } else {
-        productName.textContent = 'Seleccione un producto';
-        unitPrice.textContent = '$0';
-        salePrice.textContent = '$0';
-        currentStock.textContent = '0';
-        productImage.src = 'placeholder.svg';
-        productDetails.style.display = 'none';
+        // Cargar datos básicos del producto
+        document.getElementById('productName').textContent = product.name;
+        document.getElementById('unitPrice').textContent = formatNumber(product.unitPrice);
+        document.getElementById('salePrice').textContent = formatNumber(product.salePrice);
+        document.getElementById('currentStock').textContent = product.currentStock;
+        
+        // Cargar etiquetas del producto
+        loadProductTags(product.tags);
+        
+        // ... resto del código de carga del producto ...
     }
 }
 
-// Función para actualizar el análisis financiero
-function updateFinancialAnalysis(product) {
-    // Calcular valores financieros
-    const totalCostPrice = product.unitPrice * product.stock;
-    const stockValue = product.salePrice * product.stock;
-    const potentialProfit = stockValue - totalCostPrice;
-
-    // Actualizar elementos en el DOM
-    document.getElementById('totalCostPrice').textContent = formatNumber(totalCostPrice);
-    document.getElementById('stockValue').textContent = formatNumber(stockValue);
-    document.getElementById('potentialProfit').textContent = formatNumber(potentialProfit);
-
-    // Actualizar resumen de ventas
-    const periodData = product.periods[currentPeriod] || {
-        stockIn: 0,
-        stockOut: 0,
-        sales: 0,
-        profit: 0
-    };
-
-    document.getElementById('totalSalesValue').textContent = formatNumber(periodData.sales);
-    document.getElementById('totalProfit').textContent = formatNumber(periodData.profit);
-
-    // Actualizar estadísticas del período
-    const initialStock = product.stock - periodData.stockIn + periodData.stockOut;
-    const addedStock = periodData.stockIn;
-    const soldStock = periodData.stockOut;
-    const finalStock = product.stock;
-    const totalStockPeriod = initialStock + addedStock; // Cantidad total que ha pasado por el inventario
-
-    document.getElementById('initialStock').textContent = initialStock.toLocaleString('es-ES');
-    document.getElementById('addedStock').textContent = addedStock.toLocaleString('es-ES');
-    document.getElementById('soldStock').textContent = soldStock.toLocaleString('es-ES');
-    document.getElementById('totalStockPeriod').textContent = totalStockPeriod.toLocaleString('es-ES');
-    document.getElementById('finalStock').textContent = finalStock.toLocaleString('es-ES');
+// Modificar la función para abrir el modal de producto
+function openProductModal(productId = null) {
+    const modal = document.getElementById('productModal');
+    const form = document.getElementById('productForm');
+    form.reset();
+    clearSelectedTags();
+    const imageInput = document.getElementById('productImageInput');
+    const imageUrlPreview = document.getElementById('imageUrlPreview');
+    const imageUrlPreviewContainer = document.getElementById('imageUrlPreviewContainer');
+    if (productId) {
+        const product = products.find(p => p.id === productId);
+        if (product) {
+            document.getElementById('productNameInput').value = product.name;
+            document.getElementById('unitPriceInput').value = product.unitPrice;
+            document.getElementById('salePriceInput').value = product.salePrice;
+            document.getElementById('initialStockInput').value = product.stock || product.currentStock || 0;
+            loadProductTags(product.tags);
+            if (imageInput) imageInput.value = '';
+            // Mostrar previsualización de la imagen actual
+            if (imageUrlPreview && imageUrlPreviewContainer) {
+                if (product.image && product.image !== 'placeholder.svg') {
+                    imageUrlPreview.src = product.image;
+                    imageUrlPreviewContainer.style.display = 'block';
+                } else {
+                    imageUrlPreview.src = '';
+                    imageUrlPreviewContainer.style.display = 'none';
+                }
+            }
+            form.dataset.editId = productId;
+        }
+    } else {
+        delete form.dataset.editId;
+        if (imageInput) imageInput.value = '';
+        if (imageUrlPreview && imageUrlPreviewContainer) {
+            imageUrlPreview.src = '';
+            imageUrlPreviewContainer.style.display = 'none';
+        }
+    }
+    modal.style.display = 'block';
 }
 
-// Initialize the application when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    init().catch(error => {
-        console.error('Error fatal al iniciar la aplicación:', error);
-        showDialog('Error Fatal', `La aplicación no pudo iniciarse correctamente: ${error.message}. Por favor, recargue la página.`);
+// Función para limpiar la base de datos
+function resetDatabase() {
+    // Mostrar diálogo de confirmación
+    const confirmed = confirm('¿Estás seguro? Esta acción eliminará todos los productos y etiquetas. Esta acción no se puede deshacer.');
+    
+    if (confirmed) {
+        try {
+            // Limpiar productos
+            products = [];
+            localStorage.removeItem('products');
+
+            // Limpiar etiquetas
+            localStorage.removeItem('productTags');
+
+            // Borrar productos en el servidor
+            fetch('/products', { method: 'DELETE' })
+                .then(() => {
+                    // Actualizar la interfaz
+                    updateProductList();
+                    updateStats();
+                    clearSelectedTags();
+
+                    // Mostrar mensaje de éxito
+                    alert('La base de datos ha sido limpiada exitosamente.');
+                    // Recargar la página para asegurar un estado limpio
+                    window.location.reload();
+                })
+                .catch((error) => {
+                    console.error('Error al limpiar la base de datos en el servidor:', error);
+                    alert('No se pudo limpiar la base de datos en el servidor. Por favor, intente nuevamente.');
+                });
+        } catch (error) {
+            console.error('Error al limpiar la base de datos:', error);
+            alert('No se pudo limpiar la base de datos. Por favor, intente nuevamente.');
+        }
+    }
+}
+
+// Función para mostrar diálogo de confirmación
+function showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+        const dialog = document.createElement('div');
+        dialog.className = 'custom-dialog';
+        dialog.innerHTML = `
+            <div class="dialog-content">
+                <h3>${title}</h3>
+                <p>${message}</p>
+                <div class="dialog-buttons">
+                    <button class="btn-secondary dialog-cancel">Cancelar</button>
+                    <button class="btn-danger dialog-confirm">Confirmar</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(dialog);
+
+        const handleConfirm = () => {
+            document.body.removeChild(dialog);
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            document.body.removeChild(dialog);
+            resolve(false);
+        };
+
+        dialog.querySelector('.dialog-confirm').addEventListener('click', handleConfirm);
+        dialog.querySelector('.dialog-cancel').addEventListener('click', handleCancel);
     });
+}
+
+// Agregar el event listener para el botón de reset
+document.addEventListener('DOMContentLoaded', () => {
+    const resetDataBtn = document.getElementById('resetDataBtn');
+    if (resetDataBtn) {
+        resetDataBtn.addEventListener('click', resetDatabase);
+    }
+});
+
+// Actualizar los event listeners para los controles de stock
+function setupStockControls() {
+    if (elements.addStockBtn && elements.stockIn) {
+        elements.addStockBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevenir el comportamiento por defecto del botón
+            const inputValue = elements.stockIn.value;
+            console.log('Raw input value:', inputValue);
+            const amount = parseInt(inputValue, 10);
+            console.log('Parsed amount:', amount);
+            
+            if (!isNaN(amount) && amount > 0) {
+                addStock(amount);
+                elements.stockIn.value = '';
+            } else {
+                //alert('Por favor ingrese una cantidad mayor a 0');
+            }
+        });
+    }
+
+    if (elements.removeStockBtn && elements.stockOut) {
+        elements.removeStockBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevenir el comportamiento por defecto del botón
+            const inputValue = elements.stockOut.value;
+            console.log('Raw input value:', inputValue);
+            const amount = parseInt(inputValue, 10);
+            console.log('Parsed amount:', amount);
+            
+            if (!isNaN(amount) && amount > 0) {
+                removeStock(amount);
+                elements.stockOut.value = '';
+            } else {
+                //alert('Por favor ingrese una cantidad mayor a 0');
+            }
+        });
+    }
+}
+
+// Función para cargar las etiquetas en el selector de filtro
+function loadFilterTags() {
+    const filterTagSelect = document.getElementById('filterTagSelect');
+    if (!filterTagSelect) return;
+
+    // Mantener la opción "Todas las etiquetas"
+    filterTagSelect.innerHTML = '<option value="">Todas las etiquetas</option>';
+    
+    // Obtener todas las etiquetas únicas de los productos
+    const allTags = new Set();
+    products.forEach(product => {
+        if (product.tags) {
+            product.tags.forEach(tag => {
+                allTags.add(JSON.stringify(tag));
+            });
+        }
+    });
+
+    // Agregar las etiquetas al selector
+    allTags.forEach(tagStr => {
+        const tag = JSON.parse(tagStr);
+        const option = document.createElement('option');
+        option.value = tag.id;
+        option.textContent = tag.name;
+        filterTagSelect.appendChild(option);
+    });
+}
+
+// Función para filtrar productos por etiqueta
+function filterProductsByTag(tagId) {
+    selectedFilterTag = tagId;
+    updateProductList();
+}
+
+// === LÓGICA PARA MÓVIL: BOTÓN Y MODAL DE LISTA DE PRODUCTOS ===
+function isMobile() {
+    return window.innerWidth <= 768;
+}
+
+function renderMobileProductList() {
+    const container = document.getElementById('mobileProductListContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    // Filtrar productos por etiqueta seleccionada
+    const filteredProducts = selectedFilterTag 
+        ? products.filter(product => product.tags && product.tags.some(tag => tag.id === selectedFilterTag))
+        : products;
+    if (filteredProducts.length === 0) {
+        container.innerHTML = '<div style="padding:1em; text-align:center; color:#888;">No hay productos en esta categoría.</div>';
+        return;
+    }
+    filteredProducts.forEach((product, index) => {
+        const item = document.createElement('div');
+        item.className = 'product-item';
+        item.style.cursor = 'pointer';
+        item.innerHTML = `
+            <span class="product-name">${product.name || ''}</span>
+            <span class="product-stock">${product.currentStock?.toLocaleString() || '0'}</span>
+        `;
+        item.addEventListener('click', () => {
+            selectProduct(products.findIndex(p => p.id === product.id));
+            closeMobileProductListModal();
+        });
+        container.appendChild(item);
+    });
+}
+
+function renderMobileFilterSection() {
+    const filterSection = document.getElementById('mobileFilterSection');
+    if (!filterSection) return;
+    // Copiar el filtro de etiquetas existente
+    const original = document.getElementById('filterTagSelect');
+    if (!original) return;
+    // Crear un select nuevo para evitar conflictos
+    const select = document.createElement('select');
+    select.id = 'mobileFilterTagSelect';
+    select.className = 'tag-select';
+    select.innerHTML = original.innerHTML;
+    select.value = selectedFilterTag;
+    select.addEventListener('change', (e) => {
+        filterProductsByTag(e.target.value);
+        renderMobileProductList();
+    });
+    filterSection.innerHTML = '';
+    filterSection.appendChild(select);
+}
+
+function openMobileProductListModal() {
+    document.getElementById('mobileProductListModal').style.display = 'flex';
+    renderMobileFilterSection();
+    renderMobileProductList();
+}
+function closeMobileProductListModal() {
+    document.getElementById('mobileProductListModal').style.display = 'none';
+}
+
+// Mostrar/ocultar botón flotante solo en móvil
+function updateMobileProductListBtnVisibility() {
+    const btn = document.getElementById('openProductListBtn');
+    if (!btn) return;
+    btn.style.display = isMobile() ? 'flex' : 'none';
+}
+
+// Event listeners para el botón y modal
+window.addEventListener('resize', updateMobileProductListBtnVisibility);
+document.addEventListener('DOMContentLoaded', () => {
+    updateMobileProductListBtnVisibility();
+    // Asegura que el modal esté oculto al cargar la página
+    const mobileModal = document.getElementById('mobileProductListModal');
+    if (mobileModal) {
+        mobileModal.style.display = 'none';
+    }
+    const btn = document.getElementById('openProductListBtn');
+    if (btn) {
+        btn.addEventListener('click', openMobileProductListModal);
+    }
+    const closeBtn = document.getElementById('closeMobileProductListModal');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeMobileProductListModal);
+    }
+    // Cerrar modal al hacer click fuera del panel
+    if (mobileModal) {
+        mobileModal.addEventListener('click', (e) => {
+            if (e.target === mobileModal) closeMobileProductListModal();
+        });
+    }
+});
+
+// Overlay de orientación horizontal en móvil
+function checkOrientation() {
+  const overlay = document.getElementById('rotateDeviceOverlay');
+  if (!overlay) return;
+  if (window.innerWidth < window.innerHeight && window.innerWidth <= 768) {
+    overlay.style.display = 'flex';
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+window.addEventListener('resize', checkOrientation);
+window.addEventListener('orientationchange', checkOrientation);
+document.addEventListener('DOMContentLoaded', checkOrientation);
+
+document.addEventListener('DOMContentLoaded', function() {
+  const showBtn = document.getElementById('showSidebarButtons');
+  const btnsGroup = document.getElementById('sidebarButtonsGroup');
+
+  function isMobile() {
+    return window.innerWidth <= 600;
+  }
+
+  function hideButtonsOnMobile() {
+    if (isMobile()) {
+      btnsGroup.classList.remove('show');
+      showBtn.style.display = 'block';
+      showBtn.textContent = 'Mostrar Opciones';
+    } else {
+      btnsGroup.classList.remove('show');
+      btnsGroup.style.display = '';
+      showBtn.style.display = 'none';
+    }
+  }
+
+  showBtn.addEventListener('click', function() {
+    if (btnsGroup.classList.contains('show')) {
+      btnsGroup.classList.remove('show');
+      showBtn.textContent = 'Mostrar Opciones';
+    } else {
+      btnsGroup.classList.add('show');
+      showBtn.textContent = 'Ocultar Opciones';
+    }
+  });
+
+  window.addEventListener('resize', hideButtonsOnMobile);
+  hideButtonsOnMobile();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const fabBtn = document.getElementById('fabMenuBtn');
+  const fabMenu = document.getElementById('fabMenu');
+  const addProductBtn = document.getElementById('addProductBtn');
+  const newPeriodBtn = document.getElementById('newPeriodBtn');
+  const viewPeriodsBtn = document.getElementById('viewPeriodsBtn');
+
+  function isMobile() {
+    return window.innerWidth <= 600;
+  }
+
+  function updateFabVisibility() {
+    if (isMobile()) {
+      fabBtn.style.display = 'flex';
+    } else {
+      fabBtn.style.display = 'none';
+      fabMenu.style.display = 'none';
+    }
+  }
+
+  fabBtn.addEventListener('click', function() {
+    fabMenu.style.display = fabMenu.style.display === 'flex' ? 'none' : 'flex';
+  });
+
+  // Cerrar menú al hacer click fuera
+  document.addEventListener('click', function(e) {
+    if (isMobile() && fabMenu.style.display === 'flex' && !fabMenu.contains(e.target) && e.target !== fabBtn) {
+      fabMenu.style.display = 'none';
+    }
+  });
+
+  // Redirigir clicks del menú flotante a los botones originales
+  document.getElementById('fabAddProduct').onclick = () => addProductBtn.click();
+  document.getElementById('fabNewPeriod').onclick = () => newPeriodBtn.click();
+  document.getElementById('fabViewPeriods').onclick = () => viewPeriodsBtn.click();
+
+  window.addEventListener('resize', updateFabVisibility);
+  updateFabVisibility();
+});
+
+// Login Logic
+if (loginBtn && loginModal && loginForm && closeLoginModal && loginError) {
+  // Mostrar modal login
+  loginBtn.onclick = () => {
+    loginModal.style.display = 'block';
+    loginError.style.display = 'none';
+  };
+
+  // Cerrar modal login
+  closeLoginModal.onclick = () => {
+    loginModal.style.display = 'none';
+  };
+
+  // Procesar login
+  loginForm.onsubmit = (e) => {
+    e.preventDefault();
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    if (user === 'admin' && pass === 'agrocamacho') {
+      localStorage.setItem('isAdmin', 'true');
+      loginModal.style.display = 'none';
+      loginBtn.style.display = 'none';
+      logoutBtn.style.display = 'block';
+      showFinancialData(true);
+    } else {
+      loginError.style.display = 'block';
+    }
+  };
+
+  // Al cargar la página
+  window.addEventListener('DOMContentLoaded', () => {
+    if (isLoggedIn()) {
+      loginBtn.style.display = 'none';
+      logoutBtn.style.display = 'block';
+      showFinancialData(true);
+    } else {
+      loginBtn.style.display = 'block';
+      logoutBtn.style.display = 'none';
+      showFinancialData(false);
+    }
+  });
+}
+
+function logout() {
+  localStorage.removeItem('isAdmin');
+  showFinancialData(false);
+  loginBtn.style.display = 'block';
+  logoutBtn.style.display = 'none';
+}
+
+if (logoutBtn) {
+  logoutBtn.onclick = logout;
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  const backToStatsBtn = document.getElementById('backToStatsBtn');
+  const mainContainer = document.getElementById('mainContainer');
+  const statsPanel = document.getElementById('statsPanel');
+
+  function updateBackToStatsBtn() {
+    if (mainContainer && statsPanel && backToStatsBtn) {
+      if (mainContainer.style.display !== 'none' && mainContainer.style.display !== '') {
+        backToStatsBtn.style.display = 'inline-block';
+      } else {
+        backToStatsBtn.style.display = 'none';
+      }
+    }
+  }
+
+  if (backToStatsBtn) {
+    backToStatsBtn.onclick = function() {
+      if (mainContainer && statsPanel) {
+        mainContainer.style.display = 'none';
+        statsPanel.style.display = 'block';
+        updateBackToStatsBtn();
+      }
+    };
+  }
+
+  // Cuando se muestra el inventario, asegúrate de mostrar el botón
+  const viewInventoryBtn = document.getElementById('viewInventoryBtn');
+  if (viewInventoryBtn) {
+    viewInventoryBtn.addEventListener('click', function() {
+      if (mainContainer && statsPanel) {
+        mainContainer.style.display = 'flex';
+        statsPanel.style.display = 'none';
+        updateBackToStatsBtn();
+      }
+    });
+  }
+
+  updateBackToStatsBtn();
+});
+
+// --- Previsualización de imagen por archivo ---
+document.addEventListener('DOMContentLoaded', function() {
+    const imageInput = document.getElementById('productImageInput');
+    const imageUrlPreview = document.getElementById('imageUrlPreview');
+    const imageUrlPreviewContainer = document.getElementById('imageUrlPreviewContainer');
+    if (imageInput) {
+        imageInput.addEventListener('change', function() {
+            // Solo mostrar previsualización si estamos editando (form.dataset.editId existe)
+            const form = document.getElementById('productForm');
+            if (!form || !form.dataset.editId) {
+                if (imageUrlPreview && imageUrlPreviewContainer) {
+                    imageUrlPreview.src = '';
+                    imageUrlPreviewContainer.style.display = 'none';
+                }
+                return;
+            }
+            const file = imageInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imageUrlPreview.src = e.target.result;
+                    imageUrlPreviewContainer.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imageUrlPreview.src = '';
+                imageUrlPreviewContainer.style.display = 'none';
+            }
+        });
+    }
 });

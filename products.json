@@ -1,0 +1,27 @@
+[
+  {
+    "id": "1750716254193",
+    "name": "Fertilizante",
+    "unitPrice": 20000,
+    "salePrice": 50000,
+    "stock": 15,
+    "currentStock": 15,
+    "image": "/uploads/1750716254169-627272675.png",
+    "tags": [
+      {
+        "id": "1750716245623",
+        "name": "fertilizante",
+        "color": "#4caf50"
+      }
+    ],
+    "periods": {
+      "current": {
+        "stockIn": 15,
+        "stockOut": 0,
+        "sales": 0,
+        "profit": 0,
+        "initialStock": 15
+      }
+    }
+  }
+]
