@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Inventario Agrícola</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Panel de Estadísticas -->
+    <div class="stats-panel" id="statsPanel">
+        <div class="stats-header">
+            <h1>Control de Inventario Agrícola</h1>
+            <h2>Estadísticas Generales</h2>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-info">
+                    <h3>Valor Total del Inventario</h3>
+                    <p id="totalInventoryValue">$0.00</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔢</div>
+                <div class="stat-info">
+                    <h3>Total de Productos</h3>
+                    <p id="totalProducts">0</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-info">
+                    <h3>Ganancia Potencial Total</h3>
+                    <p id="totalPotentialProfit">$0.00</p>
+                </div>
+            </div>
+        </div>
+        <div class="stats-footer">
+            <button id="viewInventoryBtn" class="btn-primary">Ver Inventario</button>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal (inicialmente oculto) -->
+    <div class="container" id="mainContainer" style="display: none;">
+        <!-- Sidebar with product list -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Productos</h2>
+                <div class="sidebar-buttons">
+                    <button id="addProductBtn" class="btn-primary">+ Nuevo Producto</button>
+                    <button id="newPeriodBtn" class="btn-secondary">Finalizar Período</button>
+                </div>
+            </div>
+            <div class="product-list" id="productList">
+                <!-- Products will be listed here -->
+            </div>
+        </div>
+
+        <!-- Main content area -->
+        <div class="main-content">
+            <div class="product-details" id="productDetails">
+                <div class="product-header">
+                    <div class="navigation-buttons">
+                        <button id="prevProduct" class="nav-btn">←</button>
+                        <button id="nextProduct" class="nav-btn">→</button>
+                    </div>
+                    <h1 id="productName">Seleccione un producto</h1>
+                </div>
+
+                <div class="product-grid">
+                    <!-- Product Image and Summary -->
+                    <div class="product-image-container">
+                        <div class="product-image" id="productImage">
+                            <img src="placeholder.svg" alt="Producto" style="width: 100%; height: 100%; object-fit: cover;">
+                            <button id="editImageBtn" class="edit-image-btn" title="Cambiar imagen">
+                                <span class="edit-icon">✎</span>
+                            </button>
+                        </div>
+                        <div class="summary-box">
+                            <h3>Resumen de Ventas</h3>
+                            <div class="summary-item">
+                                <span>Valor Total Vendido:</span>
+                                <span id="totalSalesValue">$0.00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>Ganancia Total:</span>
+                                <span id="totalProfit">$0.00</span>
+                            </div>
+                        </div>
+                        <!-- Stock Controls -->
+                        <div class="stock-controls-container">
+                            <h3>Control de Stock</h3>
+                            <div class="stock-controls">
+                                <div class="stock-input">
+                                    <label>Entrada de Stock:</label>
+                                    <div class="stock-input-group">
+                                        <input type="number" id="stockIn" min="0" placeholder="Cantidad">
+                                        <button id="addStockBtn" class="btn-success">+ Agregar</button>
+                                    </div>
+                                </div>
+                                <div class="stock-input">
+                                    <label>Salida de Stock:</label>
+                                    <div class="stock-input-group">
+                                        <input type="number" id="stockOut" min="0" placeholder="Cantidad">
+                                        <button id="removeStockBtn" class="btn-danger">- Remover</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Details -->
+                    <div class="details-container">
+                        <div class="details-section">
+                            <h3>Información del Producto</h3>
+                            <div class="detail-item">
+                                <label>Precio Unitario:</label>
+                                <div class="value-container">
+                                    <span id="unitPrice">$0</span>
+                                    <button class="edit-btn" data-field="unitPrice">✎</button>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Precio de Venta:</label>
+                                <div class="value-container">
+                                    <span id="salePrice">$0</span>
+                                    <button class="edit-btn" data-field="salePrice">✎</button>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Stock Actual:</label>
+                                <div class="value-container">
+                                    <span id="currentStock">0</span>
+                                    <button class="edit-btn" data-field="currentStock">✎</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="details-section">
+                            <h3>Análisis Financiero</h3>
+                            <div class="detail-item">
+                                <label>Precio de Costo Total:</label>
+                                <span id="totalCostPrice">$0</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Valor de Existencia:</label>
+                                <span id="stockValue">$0</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Ganancia Potencial:</label>
+                                <span id="potentialProfit">$0</span>
+                            </div>
+                        </div>
+
+                        <div class="details-section">
+                            <h3>Estadísticas del Período</h3>
+                            <div class="detail-item">
+                                <label>Stock Inicial:</label>
+                                <span id="initialStock">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Productos Agregados:</label>
+                                <span id="addedStock">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Productos Vendidos:</label>
+                                <span id="soldStock">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Cantidad Total en Período:</label>
+                                <span id="totalStockPeriod">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Stock Final:</label>
+                                <span id="finalStock">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Controls -->
+                <div class="image-controls">
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding/editing products -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <h2>Producto</h2>
+            <form id="productForm">
+                <div class="form-group">
+                    <label>Nombre del Producto:</label>
+                    <input type="text" id="productNameInput" name="productName" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio Unitario:</label>
+                    <input type="number" id="unitPriceInput" name="unitPrice" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio de Venta:</label>
+                    <input type="number" id="salePriceInput" name="salePrice" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Stock Inicial:</label>
+                    <input type="number" id="initialStockInput" name="initialStock" required>
+                </div>
+                <div class="form-group">
+                    <label>Imagen del Producto:</label>
+                    <input type="file" id="productImageInput" name="productImage" accept="image/*">
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn-primary">Guardar</button>
+                    <button type="button" class="btn-secondary" id="closeModal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Dialog for Editing -->
+    <div id="editDialog" class="custom-dialog">
+        <div class="dialog-content">
+            <div class="dialog-icon">✎</div>
+            <div class="dialog-message"></div>
+            <div class="dialog-input-container">
+                <input type="text" id="editDialogInput" class="dialog-input">
+            </div>
+            <div class="dialog-buttons">
+                <button class="btn-secondary dialog-cancel">Cancelar</button>
+                <button class="btn-primary dialog-confirm">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date Range Modal -->
+    <div id="dateRangeModal" class="modal">
+        <div class="modal-content date-range-modal">
+            <h2>Finalizar Período</h2>
+            <div class="date-range-container">
+                <div class="date-input-group">
+                    <label>Fecha de Inicio:</label>
+                    <input type="date" id="startDate" class="date-input">
+                </div>
+                <div class="date-input-group">
+                    <label>Fecha de Fin:</label>
+                    <input type="date" id="endDate" class="date-input">
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="confirmDateRange" class="btn-primary">Confirmar</button>
+                <button id="cancelDateRange" class="btn-secondary">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="./script.js"></script>
+</body>
+</html> 
