@@ -1,56 +1,86 @@
 # Control de Inventario Agrícola
 
-Una aplicación web moderna para el control y gestión de inventarios de productos agrícolas, con un diseño inspirado en macOS.
+Sistema de control de inventario para productos agrícolas con gestión de stock, períodos de venta y análisis financiero.
 
-## Características
+## Características Principales
 
-- Gestión completa de productos agrícolas
-- Control de stock con entradas y salidas
-- Seguimiento de períodos de tiempo
-- Cálculo automático de:
-  - Precio de costo unitario
-  - Precio de venta de existencia
-  - Ganancia potencial
-  - Ganancia real por ventas
-- Almacenamiento local en formato XML
-- Interfaz moderna y responsiva
-- Diseño inspirado en macOS
+- **Gestión de Productos**: Agregar, editar y eliminar productos con información detallada
+- **Control de Stock**: Entradas y salidas de inventario con seguimiento automático
+- **Análisis Financiero**: Cálculo de ganancias potenciales y valores de inventario
+- **Períodos de Venta**: Organización de datos por períodos específicos
+- **Sistema de Etiquetas**: Clasificación de productos por categorías
+- **Imágenes de Productos**: Soporte para URLs de imágenes externas
+- **Interfaz Responsiva**: Funciona en dispositivos móviles y de escritorio
+- **Base de Datos Firebase**: Almacenamiento en la nube con sincronización en tiempo real
 
-## Cómo usar
+## Funcionalidades de Imágenes
 
-1. Abre el archivo `index.html` en tu navegador web
-2. Para agregar un nuevo producto:
-   - Haz clic en el botón "+ Nuevo Producto"
-   - Completa el formulario con los datos del producto
-   - Haz clic en "Guardar"
+### Sistema de URLs de Imagen
+- **Entrada de URL**: Los usuarios pueden ingresar URLs directas de imágenes
+- **Validación**: Sistema de validación que verifica URLs válidas (http:// o https://)
+- **Previsualización**: Vista previa de imágenes en tiempo real
+- **Manejo de Errores**: Fallback automático a imagen placeholder si la URL no carga
+- **Edición**: Botón para cambiar la imagen de productos existentes
 
-3. Para gestionar el stock:
-   - Selecciona un producto de la lista
-   - Usa los campos de entrada/salida para modificar el stock
-   - Los cálculos se actualizarán automáticamente
+### Cómo Usar las Imágenes
+1. **Nuevo Producto**: En el formulario de producto, ingresa la URL de la imagen
+2. **Editar Imagen**: Haz clic en el botón de editar imagen (✎) en la vista de producto
+3. **URLs Válidas**: Deben comenzar con `http://` o `https://`
+4. **Placeholder**: Si no se ingresa URL o hay error, se usa imagen por defecto
 
-4. Para crear un nuevo período:
-   - Haz clic en "Nuevo Período"
-   - Ingresa el nombre del período
-   - Los datos se guardarán separadamente para cada período
+### Ejemplos de URLs de Imagen
+- `https://via.placeholder.com/300x200/007AFF/FFFFFF?text=Producto`
+- `https://picsum.photos/300/200`
+- `https://ejemplo.com/imagen.jpg`
 
-5. Para editar un producto:
-   - Selecciona el producto
-   - Haz clic en el botón de edición (✎) junto al campo que deseas modificar
-   - Ingresa el nuevo valor
+## Instalación y Uso
 
-## Almacenamiento
+1. **Clonar el repositorio**
+2. **Instalar dependencias**: `npm install`
+3. **Configurar Firebase**: Actualizar configuración en `script.js`
+4. **Ejecutar servidor**: `node server.js`
+5. **Acceder**: Abrir `http://localhost:3000`
 
-La aplicación guarda todos los datos en el almacenamiento local del navegador en formato XML. Cada período se guarda por separado, permitiendo un seguimiento histórico de los productos.
+## Estructura del Proyecto
 
-## Requisitos
+```
+ser/
+├── index.html          # Interfaz principal
+├── script.js           # Lógica de la aplicación
+├── styles.css          # Estilos CSS
+├── server.js           # Servidor Express
+├── tags.js             # Gestión de etiquetas
+├── products.json       # Datos de productos (backup)
+├── placeholder.svg     # Imagen por defecto
+└── uploads/            # Directorio de imágenes (legacy)
+```
 
-- Navegador web moderno (Chrome, Firefox, Safari, Edge)
-- JavaScript habilitado
-- Almacenamiento local del navegador disponible
+## Tecnologías Utilizadas
 
-## Notas
+- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
+- **Backend**: Node.js, Express.js
+- **Base de Datos**: Firebase Realtime Database
+- **Almacenamiento**: URLs de imágenes externas
+- **UI/UX**: Diseño inspirado en iOS con componentes modernos
 
-- Los datos se guardan automáticamente en el navegador
-- Se recomienda hacer copias de seguridad periódicas de los datos
-- La aplicación funciona completamente en el navegador, no requiere servidor 
+## Cambios Recientes
+
+### Sistema de Imágenes por URL (Última Actualización)
+- ✅ Reemplazado sistema de subida de archivos por URLs
+- ✅ Validación de URLs en tiempo real
+- ✅ Previsualización de imágenes
+- ✅ Manejo de errores de carga
+- ✅ Botón de edición de imagen mejorado
+- ✅ Compatibilidad con Firebase
+
+## Contribuir
+
+1. Fork el proyecto
+2. Crear rama para nueva funcionalidad
+3. Commit los cambios
+4. Push a la rama
+5. Abrir Pull Request
+
+## Licencia
+
+Este proyecto está bajo la Licencia MIT. 

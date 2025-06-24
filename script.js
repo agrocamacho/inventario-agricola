@@ -203,7 +203,10 @@ async function loadProducts() {
 // Save products to Realtime Database
 async function saveProducts() {
     try {
-        await guardarProducto(products);
+        // Guardar cada producto individualmente en Firebase
+        for (const product of products) {
+            await guardarProducto(product);
+        }
         console.log('Productos guardados exitosamente en Realtime Database');
         updateStats();
     } catch (error) {
@@ -274,7 +277,7 @@ async function showEditDialog(message, currentValue) {
         dialog.innerHTML = `
             <div class="edit-dialog-content">
                 <h3>${message}</h3>
-                <input type="number" id="editValue" value="${currentValue.replace(/[^0-9.-]/g, '')}" step="0.01">
+                <input type="text" id="editValue" value="${currentValue}" step="0.01">
                 <div class="edit-dialog-buttons">
                     <button class="btn-primary" id="confirmEdit">Guardar</button>
                     <button class="btn-secondary" id="cancelEdit">Cancelar</button>
@@ -807,61 +810,31 @@ function setupEventListeners(elements) {
             console.log('Product form submitted');
             try {
                 const formData = new FormData(elements.productForm);
-                const imageFile = formData.get('productImage');
-                let imageUrl = null;
+                const imageUrl = formData.get('productImage');
+                
                 // Si estamos editando un producto existente
                 const editId = elements.productForm.dataset.editId;
                 if (editId) {
                     const index = products.findIndex(p => p.id === editId);
                     if (index !== -1) {
-                        // Si se seleccionó una nueva imagen, subirla
-                        if (imageFile && imageFile.size > 0) {
-                            const uploadData = new FormData();
-                            uploadData.append('image', imageFile);
-                            const response = await fetch('/upload-image', { method: 'POST', body: uploadData });
-                            const result = await response.json();
-                            if (!result.success || !result.url) {
-                                showDialog('Error', 'No se pudo subir la imagen.');
-                                return;
-                            }
-                            imageUrl = result.url;
-                        } else {
-                            // Mantener la imagen actual
-                            imageUrl = products[index].image;
-                        }
                         const productData = {
                             name: formData.get('productName'),
                             unitPrice: parseFloat(formData.get('unitPrice')),
                             salePrice: parseFloat(formData.get('salePrice')),
                             initialStock: parseInt(formData.get('initialStock')),
-                            image: imageUrl,
+                            image: imageUrl && imageUrl.trim() !== '' ? imageUrl.trim() : (products[index].image || 'placeholder.svg'),
                             tags: getSelectedTags()
                         };
                         updateProduct(index, productData);
                     }
                 } else {
                     // Si es un nuevo producto
-                    if (imageFile && imageFile.size > 0) {
-                        // Subir imagen al servidor
-                        const uploadData = new FormData();
-                        uploadData.append('image', imageFile);
-                        const response = await fetch('/upload-image', { method: 'POST', body: uploadData });
-                        const result = await response.json();
-                        if (!result.success || !result.url) {
-                            showDialog('Error', 'No se pudo subir la imagen.');
-                            return;
-                        }
-                        imageUrl = result.url;
-                    } else {
-                        // Si no se seleccionó imagen, usar placeholder
-                        imageUrl = 'placeholder.svg';
-                    }
                     const productData = {
                         name: formData.get('productName'),
                         unitPrice: parseFloat(formData.get('unitPrice')),
                         salePrice: parseFloat(formData.get('salePrice')),
                         initialStock: parseInt(formData.get('initialStock')),
-                        image: imageUrl,
+                        image: imageUrl && imageUrl.trim() !== '' ? imageUrl.trim() : 'placeholder.svg',
                         tags: getSelectedTags()
                     };
                     await addProduct(productData);
@@ -943,7 +916,7 @@ function setupEventListeners(elements) {
         elements.viewPeriodsBtn.addEventListener('click', showPeriodsHistory);
     }
 
-    // Botón de reset
+    // Botón de reset de base de datos
     const resetDataBtn = document.getElementById('resetDataBtn');
     if (resetDataBtn) {
         resetDataBtn.addEventListener('click', resetDatabase);
@@ -987,6 +960,43 @@ function setupEventListeners(elements) {
             }
         });
     });
+
+    // Edit image button
+    if (elements.editImageBtn) {
+        elements.editImageBtn.addEventListener('click', async () => {
+            const product = products[currentProductIndex];
+            if (product) {
+                const currentImageUrl = product.image || '';
+                const newImageUrl = await showEditDialog('Ingrese la URL de la nueva imagen:', currentImageUrl);
+                
+                if (newImageUrl !== null) {
+                    const trimmedUrl = newImageUrl.trim();
+                    
+                    // Si está vacío, usar placeholder
+                    if (trimmedUrl === '') {
+                        product.image = 'placeholder.svg';
+                    } else {
+                        // Validar que sea una URL válida (permitir URLs relativas también)
+                        try {
+                            // Si es una URL absoluta, validarla
+                            if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+                                new URL(trimmedUrl);
+                            }
+                            // Si es una URL relativa o absoluta válida, guardarla
+                            product.image = trimmedUrl;
+                        } catch (e) {
+                            showDialog('Error', 'Por favor ingrese una URL válida (debe comenzar con http:// o https://)');
+                            return;
+                        }
+                    }
+                    
+                    await saveProducts();
+                    selectProduct(currentProductIndex);
+                    showNotification('Imagen actualizada correctamente');
+                }
+            }
+        });
+    }
 
     console.log('Event listeners setup completed');
 }
@@ -1409,7 +1419,7 @@ function openProductModal(productId = null) {
             document.getElementById('salePriceInput').value = product.salePrice;
             document.getElementById('initialStockInput').value = product.stock || product.currentStock || 0;
             loadProductTags(product.tags);
-            if (imageInput) imageInput.value = '';
+            if (imageInput) imageInput.value = product.image || '';
             // Mostrar previsualización de la imagen actual
             if (imageUrlPreview && imageUrlPreviewContainer) {
                 if (product.image && product.image !== 'placeholder.svg') {
@@ -1433,13 +1443,43 @@ function openProductModal(productId = null) {
     modal.style.display = 'block';
 }
 
-// Función para limpiar la base de datos
-function resetDatabase() {
-    // Mostrar diálogo de confirmación
-    const confirmed = confirm('¿Estás seguro? Esta acción eliminará todos los productos y etiquetas. Esta acción no se puede deshacer.');
-    
+// Función para limpiar la base de datos con verificación de seguridad
+async function resetDatabase() {
+    // Verificar que el usuario esté logueado
+    if (!isLoggedIn()) {
+        showDialog('Error', 'Debe iniciar sesión para realizar esta acción.');
+        return;
+    }
+
+    // Pedir contraseña de confirmación
+    const password = await showEditDialog('Ingrese la contraseña para confirmar:', '');
+    if (password === null) {
+        return; // Usuario canceló
+    }
+
+    // Verificar contraseña
+    if (password !== 'agrocamacho') {
+        showDialog('Error', 'Contraseña incorrecta. La operación ha sido cancelada.');
+        return;
+    }
+
+    // Mostrar advertencia final
+    const confirmed = await showConfirmDialog(
+        '⚠️ ADVERTENCIA CRÍTICA ⚠️',
+        'Está a punto de ELIMINAR COMPLETAMENTE todos los datos:\n\n' +
+        '• Todos los productos\n' +
+        '• Todo el historial de períodos\n' +
+        '• Todas las etiquetas\n' +
+        '• Todos los datos financieros\n\n' +
+        'Esta acción NO SE PUEDE DESHACER.\n\n' +
+        '¿Está completamente seguro de que desea continuar?'
+    );
+
     if (confirmed) {
         try {
+            // Mostrar indicador de progreso
+            showNotification('Eliminando datos...', 3000);
+            
             // Limpiar productos
             products = [];
             localStorage.removeItem('products');
@@ -1448,7 +1488,7 @@ function resetDatabase() {
             localStorage.removeItem('productTags');
 
             // Borrar productos en Realtime Database
-            db.ref('productos').remove();
+            await db.ref('productos').remove();
 
             // Actualizar la interfaz
             updateProductList();
@@ -1456,56 +1496,18 @@ function resetDatabase() {
             clearSelectedTags();
 
             // Mostrar mensaje de éxito
-            alert('La base de datos ha sido limpiada exitosamente.');
+            showNotification('Base de datos limpiada exitosamente', 5000);
+            
             // Recargar la página para asegurar un estado limpio
-            window.location.reload();
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
         } catch (error) {
             console.error('Error al limpiar la base de datos:', error);
-            alert('No se pudo limpiar la base de datos. Por favor, intente nuevamente.');
+            showDialog('Error', 'No se pudo limpiar la base de datos. Por favor, intente nuevamente.');
         }
     }
 }
-
-// Función para mostrar diálogo de confirmación
-function showConfirmDialog(title, message) {
-    return new Promise((resolve) => {
-        const dialog = document.createElement('div');
-        dialog.className = 'custom-dialog';
-        dialog.innerHTML = `
-            <div class="dialog-content">
-                <h3>${title}</h3>
-                <p>${message}</p>
-                <div class="dialog-buttons">
-                    <button class="btn-secondary dialog-cancel">Cancelar</button>
-                    <button class="btn-danger dialog-confirm">Confirmar</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(dialog);
-
-        const handleConfirm = () => {
-            document.body.removeChild(dialog);
-            resolve(true);
-        };
-
-        const handleCancel = () => {
-            document.body.removeChild(dialog);
-            resolve(false);
-        };
-
-        dialog.querySelector('.dialog-confirm').addEventListener('click', handleConfirm);
-        dialog.querySelector('.dialog-cancel').addEventListener('click', handleCancel);
-    });
-}
-
-// Agregar el event listener para el botón de reset
-document.addEventListener('DOMContentLoaded', () => {
-    const resetDataBtn = document.getElementById('resetDataBtn');
-    if (resetDataBtn) {
-        resetDataBtn.addEventListener('click', resetDatabase);
-    }
-});
 
 // Actualizar los event listeners para los controles de stock
 function setupStockControls() {
@@ -1784,6 +1786,11 @@ if (loginBtn && loginModal && loginForm && closeLoginModal && loginError) {
       loginBtn.style.display = 'none';
       logoutBtn.style.display = 'block';
       showFinancialData(true);
+      // Mostrar botón de reset de base de datos
+      const resetDataBtn = document.getElementById('resetDataBtn');
+      if (resetDataBtn) {
+        resetDataBtn.style.display = 'inline-block';
+      }
     } else {
       loginError.style.display = 'block';
     }
@@ -1795,10 +1802,20 @@ if (loginBtn && loginModal && loginForm && closeLoginModal && loginError) {
       loginBtn.style.display = 'none';
       logoutBtn.style.display = 'block';
       showFinancialData(true);
+      // Mostrar botón de reset de base de datos
+      const resetDataBtn = document.getElementById('resetDataBtn');
+      if (resetDataBtn) {
+        resetDataBtn.style.display = 'inline-block';
+      }
     } else {
       loginBtn.style.display = 'block';
       logoutBtn.style.display = 'none';
       showFinancialData(false);
+      // Ocultar botón de reset de base de datos
+      const resetDataBtn = document.getElementById('resetDataBtn');
+      if (resetDataBtn) {
+        resetDataBtn.style.display = 'none';
+      }
     }
   });
 }
@@ -1808,6 +1825,11 @@ function logout() {
   showFinancialData(false);
   loginBtn.style.display = 'block';
   logoutBtn.style.display = 'none';
+  // Ocultar botón de reset de base de datos
+  const resetDataBtn = document.getElementById('resetDataBtn');
+  if (resetDataBtn) {
+    resetDataBtn.style.display = 'none';
+  }
 }
 
 if (logoutBtn) {
@@ -1854,30 +1876,50 @@ window.addEventListener('DOMContentLoaded', function() {
   updateBackToStatsBtn();
 });
 
-// --- Previsualización de imagen por archivo ---
+// --- Previsualización de imagen por URL ---
 document.addEventListener('DOMContentLoaded', function() {
     const imageInput = document.getElementById('productImageInput');
     const imageUrlPreview = document.getElementById('imageUrlPreview');
     const imageUrlPreviewContainer = document.getElementById('imageUrlPreviewContainer');
     if (imageInput) {
-        imageInput.addEventListener('change', function() {
-            // Solo mostrar previsualización si estamos editando (form.dataset.editId existe)
+        imageInput.addEventListener('input', function() {
+            // Solo mostrar previsualización si estamos editando un producto existente
             const form = document.getElementById('productForm');
             if (!form || !form.dataset.editId) {
+                // Si no estamos editando, ocultar la previsualización
                 if (imageUrlPreview && imageUrlPreviewContainer) {
                     imageUrlPreview.src = '';
                     imageUrlPreviewContainer.style.display = 'none';
                 }
                 return;
             }
-            const file = imageInput.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imageUrlPreview.src = e.target.result;
+            
+            const imageUrl = imageInput.value.trim();
+            if (imageUrl && imageUrl !== 'placeholder.svg') {
+                // Validar que sea una URL válida
+                try {
+                    // Si es una URL absoluta, validarla
+                    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                        new URL(imageUrl);
+                    }
+                    imageUrlPreview.src = imageUrl;
                     imageUrlPreviewContainer.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
+                    
+                    // Manejar errores de carga de imagen
+                    imageUrlPreview.onerror = function() {
+                        imageUrlPreview.src = 'placeholder.svg';
+                        imageUrlPreviewContainer.style.display = 'block';
+                    };
+                    
+                    // Manejar carga exitosa
+                    imageUrlPreview.onload = function() {
+                        imageUrlPreviewContainer.style.display = 'block';
+                    };
+                } catch (e) {
+                    // Si no es una URL válida, ocultar la previsualización
+                    imageUrlPreview.src = '';
+                    imageUrlPreviewContainer.style.display = 'none';
+                }
             } else {
                 imageUrlPreview.src = '';
                 imageUrlPreviewContainer.style.display = 'none';
@@ -1910,3 +1952,36 @@ function obtenerProductos() {
 // guardarProducto({ nombre: "Tomate", precio: 10, stock: 100 });
 
 // Puedes conectar estas funciones con tu UI según lo necesites.
+
+// Función para mostrar diálogo de confirmación
+function showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+        const dialog = document.createElement('div');
+        dialog.className = 'custom-dialog';
+        dialog.innerHTML = `
+            <div class="dialog-content">
+                <h3 style="color: #FF3B30; margin-bottom: 15px;">${title}</h3>
+                <div style="white-space: pre-line; line-height: 1.6; margin-bottom: 20px; text-align: left;">${message}</div>
+                <div class="dialog-buttons">
+                    <button class="btn-secondary dialog-cancel">Cancelar</button>
+                    <button class="btn-danger dialog-confirm">ELIMINAR TODO</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(dialog);
+
+        const handleConfirm = () => {
+            document.body.removeChild(dialog);
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            document.body.removeChild(dialog);
+            resolve(false);
+        };
+
+        dialog.querySelector('.dialog-confirm').addEventListener('click', handleConfirm);
+        dialog.querySelector('.dialog-cancel').addEventListener('click', handleCancel);
+    });
+}

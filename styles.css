@@ -1327,49 +1327,83 @@ body {
 
 /* Custom Dialog */
 .custom-dialog {
-    display: none;
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
 }
 
 .dialog-content {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: #ffffff;
-    padding: 2rem;
-    border-radius: 1rem;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
     width: 90%;
-    max-width: 400px;
     text-align: center;
 }
 
-.dialog-icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
+.dialog-content h3 {
+    font-size: 1.4em;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.dialog-content h3[style*="color: #FF3B30"] {
+    font-size: 1.6em;
+    font-weight: 700;
 }
 
 .dialog-message {
-    font-size: 1.2rem;
-    font-weight: 500;
-    margin-bottom: 1rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
 }
 
 .dialog-buttons {
     display: flex;
+    gap: 10px;
     justify-content: center;
-    gap: 1rem;
+    margin-top: 20px;
 }
 
 .dialog-buttons .btn-primary,
+.dialog-buttons .btn-secondary,
+.dialog-buttons .btn-danger {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 120px;
+}
+
+.dialog-buttons .btn-danger {
+    background-color: #FF3B30;
+    color: white;
+}
+
+.dialog-buttons .btn-danger:hover {
+    background-color: #D70015;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+}
+
 .dialog-buttons .btn-secondary {
-    min-width: 100px;
+    background-color: #8E8E93;
+    color: white;
+}
+
+.dialog-buttons .btn-secondary:hover {
+    background-color: #6D6D70;
+    transform: translateY(-1px);
 }
 
 /* Navigation Indicator */

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de URLs de Imagen</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .preview {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .preview img {
+            max-width: 200px;
+            max-height: 200px;
+            border: 1px solid #ccc;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Prueba de URLs de Imagen</h1>
+    
+    <div class="test-section">
+        <h2>Prueba de Validación de URLs</h2>
+        <input type="url" id="testUrl" class="url-input" placeholder="https://ejemplo.com/imagen.jpg">
+        <div id="urlValidation"></div>
+        <div id="imagePreview" class="preview" style="display: none;">
+            <h3>Previsualización:</h3>
+            <img id="previewImg" src="" alt="Previsualización">
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>URLs de Prueba</h2>
+        <p>Prueba estas URLs:</p>
+        <ul>
+            <li><a href="#" onclick="testUrl('https://via.placeholder.com/300x200/007AFF/FFFFFF?text=Imagen+de+Prueba')">https://via.placeholder.com/300x200/007AFF/FFFFFF?text=Imagen+de+Prueba</a></li>
+            <li><a href="#" onclick="testUrl('https://picsum.photos/300/200')">https://picsum.photos/300/200</a></li>
+            <li><a href="#" onclick="testUrl('https://httpbin.org/image/png')">https://httpbin.org/image/png</a></li>
+            <li><a href="#" onclick="testUrl('')">URL vacía (placeholder)</a></li>
+            <li><a href="#" onclick="testUrl('url-invalida')">URL inválida</a></li>
+        </ul>
+    </div>
+
+    <script>
+        const testUrlInput = document.getElementById('testUrl');
+        const urlValidation = document.getElementById('urlValidation');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewImg = document.getElementById('previewImg');
+
+        function validateUrl(url) {
+            if (!url || url.trim() === '') {
+                return { valid: true, message: 'URL vacía - se usará placeholder', type: 'info' };
+            }
+            
+            try {
+                if (url.startsWith('http://') || url.startsWith('https://')) {
+                    new URL(url);
+                    return { valid: true, message: 'URL válida', type: 'success' };
+                } else {
+                    return { valid: false, message: 'URL debe comenzar con http:// o https://', type: 'error' };
+                }
+            } catch (e) {
+                return { valid: false, message: 'URL inválida', type: 'error' };
+            }
+        }
+
+        function testUrl(url) {
+            testUrlInput.value = url;
+            const validation = validateUrl(url);
+            
+            urlValidation.innerHTML = `<span class="${validation.type}">${validation.message}</span>`;
+            
+            if (validation.valid && url.trim() !== '') {
+                imagePreview.style.display = 'block';
+                previewImg.src = url;
+                previewImg.onerror = function() {
+                    this.src = 'placeholder.svg';
+                    urlValidation.innerHTML = '<span class="error">Error al cargar la imagen - usando placeholder</span>';
+                };
+                previewImg.onload = function() {
+                    urlValidation.innerHTML = '<span class="success">Imagen cargada correctamente</span>';
+                };
+            } else {
+                imagePreview.style.display = 'none';
+            }
+        }
+
+        testUrlInput.addEventListener('input', function() {
+            const url = this.value;
+            testUrl(url);
+        });
+
+        // Probar con una URL por defecto
+        testUrl('https://via.placeholder.com/300x200/007AFF/FFFFFF?text=Imagen+de+Prueba');
+    </script>
+</body>
+</html> 
