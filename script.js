@@ -42,6 +42,21 @@ const closeLoginModal = document.getElementById('closeLoginModal');
 const loginError = document.getElementById('loginError');
 const logoutBtn = document.getElementById('logoutBtn');
 
+// Inicialización de Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDqb4BuMMc33r9C6I-XVLfpgAJH52oeM5Y",
+  authDomain: "agrocamacho-5d82f.firebaseapp.com",
+  databaseURL: "https://agrocamacho-5d82f-default-rtdb.firebaseio.com",
+  projectId: "agrocamacho-5d82f",
+  storageBucket: "agrocamacho-5d82f.appspot.com",
+  messagingSenderId: "106322718569",
+  appId: "1:106322718569:web:b45ef3bc137810db6717f8",
+  measurementId: "G-6B4V6DCZZ8"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
 function isLoggedIn() {
   return localStorage.getItem('isAdmin') === 'true';
 }
@@ -161,47 +176,39 @@ function updateStats() {
     elements.totalPotentialProfit.textContent = formatNumber(stats.potentialProfit);
 }
 
-// Load products from server
+// Load products from Realtime Database
 async function loadProducts() {
     try {
-        console.log('Loading products from server...');
-        const response = await fetch('/products');
-        products = await response.json();
+        products = await obtenerProductos();
+        // Asegurarse de que cada producto tenga un objeto periods
         products = products.map(product => ({
             ...product,
-            periods: product.periods || { 
-                current: { 
-                    stockIn: 0, 
-                    stockOut: 0, 
-                    sales: 0, 
-                    profit: 0,
-                    initialStock: product.stock || 0
-                } 
-            }
+            stock: product.stock !== undefined ? product.stock : (product.currentStock !== undefined ? product.currentStock : 0),
+            periods: product.periods || { current: { stockIn: 0, stockOut: 0, sales: 0, profit: 0 } }
         }));
-        console.log('Products loaded successfully:', products);
+        console.log('Productos cargados exitosamente:', products);
         loadFilterTags();
         updateProductList();
         updateStats();
+        // Seleccionar el primer producto si existe
+        if (products.length > 0) {
+            selectProduct(0);
+        }
     } catch (error) {
-        console.error('Error loading products from server:', error);
-        throw new Error('Failed to load products from server');
+        console.error('Error al cargar productos:', error);
+        showDialog('Error', 'No se pudieron cargar los productos. Por favor, recargue la página.');
     }
 }
 
-// Save products to server
+// Save products to Realtime Database
 async function saveProducts() {
     try {
-        await fetch('/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(products)
-        });
-        console.log('Productos guardados exitosamente en el servidor');
+        await guardarProducto(products);
+        console.log('Productos guardados exitosamente en Realtime Database');
         updateStats();
     } catch (error) {
-        console.error('Error al guardar productos en el servidor:', error);
-        showDialog('Error', 'No se pudieron guardar los productos en el servidor. Por favor, intente nuevamente.');
+        console.error('Error al guardar productos en Realtime Database:', error);
+        showDialog('Error', 'No se pudieron guardar los productos en Realtime Database. Por favor, intente nuevamente.');
     }
 }
 
@@ -374,7 +381,6 @@ async function addProduct(productData) {
     try {
         const initialStock = parseInt(productData.initialStock) || 0;
         const newProduct = {
-            id: Date.now().toString(),
             name: productData.name,
             unitPrice: parseFloat(productData.unitPrice),
             salePrice: parseFloat(productData.salePrice),
@@ -392,15 +398,18 @@ async function addProduct(productData) {
                 }
             }
         };
-        products.push(newProduct);
-        await saveProducts();
+        await guardarProducto(newProduct);
+        await loadProducts();
         updateProductList();
-        selectProduct(products.length - 1);
+        updateStats();
+        // Seleccionar el último producto agregado
+        if (products.length > 0) {
+            selectProduct(products.length - 1);
+        }
         console.log('Producto agregado exitosamente');
     } catch (error) {
         console.error('Error al agregar producto:', error);
         showDialog('Error', 'No se pudo agregar el producto. Por favor, intente nuevamente.');
-        throw error;
     }
 }
 
@@ -1438,23 +1447,18 @@ function resetDatabase() {
             // Limpiar etiquetas
             localStorage.removeItem('productTags');
 
-            // Borrar productos en el servidor
-            fetch('/products', { method: 'DELETE' })
-                .then(() => {
-                    // Actualizar la interfaz
-                    updateProductList();
-                    updateStats();
-                    clearSelectedTags();
+            // Borrar productos en Realtime Database
+            db.ref('productos').remove();
 
-                    // Mostrar mensaje de éxito
-                    alert('La base de datos ha sido limpiada exitosamente.');
-                    // Recargar la página para asegurar un estado limpio
-                    window.location.reload();
-                })
-                .catch((error) => {
-                    console.error('Error al limpiar la base de datos en el servidor:', error);
-                    alert('No se pudo limpiar la base de datos en el servidor. Por favor, intente nuevamente.');
-                });
+            // Actualizar la interfaz
+            updateProductList();
+            updateStats();
+            clearSelectedTags();
+
+            // Mostrar mensaje de éxito
+            alert('La base de datos ha sido limpiada exitosamente.');
+            // Recargar la página para asegurar un estado limpio
+            window.location.reload();
         } catch (error) {
             console.error('Error al limpiar la base de datos:', error);
             alert('No se pudo limpiar la base de datos. Por favor, intente nuevamente.');
@@ -1881,3 +1885,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Función para guardar un producto en Realtime Database
+function guardarProducto(producto) {
+  if (producto.id) {
+    return db.ref('productos/' + producto.id).set(producto);
+  } else {
+    const newRef = db.ref('productos').push();
+    producto.id = newRef.key;
+    return newRef.set(producto);
+  }
+}
+
+// Función para obtener todos los productos de Realtime Database
+function obtenerProductos() {
+  return db.ref('productos').once('value').then(snapshot => {
+    const productosObj = snapshot.val() || {};
+    return Object.values(productosObj);
+  });
+}
+
+// Ejemplo de uso:
+// obtenerProductos().then(productos => console.log(productos));
+// guardarProducto({ nombre: "Tomate", precio: 10, stock: 100 });
+
+// Puedes conectar estas funciones con tu UI según lo necesites.
