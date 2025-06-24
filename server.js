@@ -89,7 +89,14 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/products', async (req, res) => {
     try {
         const data = await fs.readFile(path.join(__dirname, 'products.json'), 'utf8');
-        res.json(JSON.parse(data));
+        let products = [];
+        try {
+            products = JSON.parse(data);
+            if (!Array.isArray(products)) products = [];
+        } catch (e) {
+            products = [];
+        }
+        res.json(products);
     } catch (error) {
         if (error.code === 'ENOENT') {
             res.json([]); // Si no existe el archivo, devuelve array vacío
