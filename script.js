@@ -796,7 +796,6 @@ function setupEventListeners(elements) {
         elements.productForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             console.log('Product form submitted');
-            
             try {
                 const formData = new FormData(elements.productForm);
                 const imageFile = formData.get('productImage');
@@ -833,25 +832,27 @@ function setupEventListeners(elements) {
                     }
                 } else {
                     // Si es un nuevo producto
-                    if (!imageFile || imageFile.size === 0) {
-                        showDialog('Error', 'Debes seleccionar una imagen.');
-                        return;
-                    }
-                    // Subir imagen al servidor
-                    const uploadData = new FormData();
-                    uploadData.append('image', imageFile);
-                    const response = await fetch('/upload-image', { method: 'POST', body: uploadData });
-                    const result = await response.json();
-                    if (!result.success || !result.url) {
-                        showDialog('Error', 'No se pudo subir la imagen.');
-                        return;
+                    if (imageFile && imageFile.size > 0) {
+                        // Subir imagen al servidor
+                        const uploadData = new FormData();
+                        uploadData.append('image', imageFile);
+                        const response = await fetch('/upload-image', { method: 'POST', body: uploadData });
+                        const result = await response.json();
+                        if (!result.success || !result.url) {
+                            showDialog('Error', 'No se pudo subir la imagen.');
+                            return;
+                        }
+                        imageUrl = result.url;
+                    } else {
+                        // Si no se seleccionó imagen, usar placeholder
+                        imageUrl = 'placeholder.svg';
                     }
                     const productData = {
                         name: formData.get('productName'),
                         unitPrice: parseFloat(formData.get('unitPrice')),
                         salePrice: parseFloat(formData.get('salePrice')),
                         initialStock: parseInt(formData.get('initialStock')),
-                        image: result.url,
+                        image: imageUrl,
                         tags: getSelectedTags()
                     };
                     await addProduct(productData);
@@ -861,11 +862,9 @@ function setupEventListeners(elements) {
                 elements.productModal.style.display = 'none';
                 elements.productForm.reset();
                 clearSelectedTags();
-                
                 // Actualizar la lista de productos y estadísticas
                 updateProductList();
                 updateStats();
-                
             } catch (error) {
                 console.error('Error al guardar el producto:', error);
                 showDialog('Error', 'No se pudo guardar el producto. Por favor, intente nuevamente.');

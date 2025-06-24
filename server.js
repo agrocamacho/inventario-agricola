@@ -108,6 +108,16 @@ app.post('/products', express.json(), async (req, res) => {
     }
 });
 
+// Ruta para borrar todos los productos
+app.delete('/products', async (req, res) => {
+    try {
+        await fs.writeFile(path.join(__dirname, 'products.json'), '[]', 'utf8');
+        res.json({ status: 'ok', message: 'Todos los productos han sido eliminados.' });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: 'No se pudo limpiar la base de datos.' });
+    }
+});
+
 // Manejo de errores
 app.use((err, req, res, next) => {
     console.error(err.stack);
