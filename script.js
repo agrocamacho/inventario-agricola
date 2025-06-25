@@ -1263,7 +1263,7 @@ function updateFinancialAnalysis(product) {
     if (elements.addedStock) elements.addedStock.textContent = (currentPeriod.stockIn || 0).toLocaleString();
     if (elements.soldStock) elements.soldStock.textContent = (currentPeriod.stockOut || 0).toLocaleString();
     if (elements.totalStockPeriod) {
-        const totalStockPeriod = (currentPeriod.stockIn || 0) + (currentPeriod.stockOut || 0);
+        const totalStockPeriod = (currentPeriod.initialStock || 0) + (currentPeriod.stockIn || 0);
         elements.totalStockPeriod.textContent = totalStockPeriod.toLocaleString();
     }
     if (elements.finalStock) elements.finalStock.textContent = (product.currentStock || 0).toLocaleString();
