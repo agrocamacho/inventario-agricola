@@ -1,17 +1,32 @@
 // Sistema de etiquetas
-let tags = JSON.parse(localStorage.getItem('productTags')) || [];
+let tags = [];
 let selectedTags = new Set();
 
-// Función para cargar las etiquetas en el selector
+// Guardar una etiqueta en Firebase
+function guardarTagEnFirebase(tag) {
+    return db.ref('tags/' + tag.id).set(tag);
+}
+
+// Obtener todas las etiquetas desde Firebase
+function obtenerTagsDesdeFirebase() {
+    return db.ref('tags').once('value').then(snapshot => {
+        const tagsObj = snapshot.val() || {};
+        return Object.values(tagsObj);
+    });
+}
+
+// Función para cargar las etiquetas en el selector (desde Firebase)
 function loadTags() {
-    const tagSelect = document.getElementById('tagSelect');
-    tagSelect.innerHTML = '<option value="">Seleccionar etiqueta...</option>';
-    
-    tags.forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag.id;
-        option.textContent = tag.name;
-        tagSelect.appendChild(option);
+    obtenerTagsDesdeFirebase().then(fetchedTags => {
+        tags = fetchedTags;
+        const tagSelect = document.getElementById('tagSelect');
+        tagSelect.innerHTML = '<option value="">Seleccionar etiqueta...</option>';
+        tags.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag.id;
+            option.textContent = tag.name;
+            tagSelect.appendChild(option);
+        });
     });
 }
 
@@ -19,7 +34,6 @@ function loadTags() {
 function updateSelectedTags() {
     const selectedTagsContainer = document.getElementById('selectedTags');
     selectedTagsContainer.innerHTML = '';
-    
     selectedTags.forEach(tagId => {
         const tag = tags.find(t => t.id === tagId);
         if (tag) {
@@ -35,16 +49,22 @@ function updateSelectedTags() {
     });
 }
 
-// Función para agregar una nueva etiqueta
+// Función para agregar una nueva etiqueta (nombre en mayúsculas y sin duplicados)
 function addNewTag(name, color) {
+    const upperName = name.trim().toUpperCase();
+    // No permitir duplicados (ignorando espacios y mayúsculas)
+    const normalized = upperName.replace(/\s+/g, '');
+    const existing = tags.find(tag => tag.name.replace(/\s+/g, '').toUpperCase() === normalized);
+    if (existing) {
+        return existing;
+    }
     const newTag = {
         id: Date.now().toString(),
-        name: name,
+        name: upperName,
         color: color
     };
-    
     tags.push(newTag);
-    localStorage.setItem('productTags', JSON.stringify(tags));
+    guardarTagEnFirebase(newTag);
     loadTags();
     return newTag;
 }

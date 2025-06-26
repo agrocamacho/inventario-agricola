@@ -1404,6 +1404,7 @@ function loadProduct(productId) {
 
 // Modificar la función para abrir el modal de producto
 function openProductModal(productId = null) {
+    loadTags(); // <-- Asegura que el selector de etiquetas esté actualizado
     const modal = document.getElementById('productModal');
     const form = document.getElementById('productForm');
     form.reset();
