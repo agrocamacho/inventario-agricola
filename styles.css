@@ -155,24 +155,89 @@ body {
 }
 
 .product-item {
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: var(--card-bg);
-    margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    border: 1px solid #f0f0f0;
+    gap: 10px;
+    min-width: 0;
 }
 
-.product-item img {
-    width: 24px;
-    height: 24px;
-    object-fit: cover;
-    border-radius: 4px;
-    margin-right: 0.5rem;
+.product-item .product-name {
+    font-weight: 600;
+    font-size: 1em;
+    flex: 1 1 120px;
+    min-width: 0;
+    word-break: break-word;
+    margin-right: 8px;
+}
+
+.product-item .product-stock {
+    background: #f2f7ff;
+    color: #007aff;
+    border-radius: 8px;
+    padding: 2px 10px;
+    font-size: 1em;
+    margin-right: 8px;
+    min-width: 24px;
+    text-align: center;
+}
+
+.product-item .product-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+.product-item .product-tag {
+    font-size: 0.85em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: #fff;
+    background: #4CAF50;
+    white-space: nowrap;
+}
+
+.product-item .delete-product-btn {
+    background: none;
+    border: none;
+    color: #ff3b30;
+    font-size: 1.2em;
+    cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
+    align-self: flex-start;
+    transition: color 0.2s, background 0.2s;
+}
+
+.product-item .delete-product-btn:hover, .product-item .delete-product-btn:focus {
+    color: #fff;
+    background: #ff3b30;
+    border-radius: 50%;
+}
+
+@media (max-width: 600px) {
+  .product-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 8px;
+  }
+  .product-item .delete-product-btn {
+    align-self: flex-end;
+    margin-left: 0;
+    margin-top: 4px;
+  }
+  .product-item .product-tags {
+    margin-right: 0;
+  }
 }
 
 .product-item:hover {

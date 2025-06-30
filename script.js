@@ -5,6 +5,7 @@ let periods = [];
 let elements = null;
 let currentPeriod = 'current';
 let selectedFilterTag = '';
+let isAlphaSortActive = false;
 
 // DOM Elements
 let productList;
@@ -139,7 +140,7 @@ function init() {
         
         // Show first product if exists
         if (products.length > 0) {
-            selectProduct(0);
+            selectProduct(products[0].id);
         }
         
         // Setup stock controls
@@ -165,9 +166,10 @@ function updateStats() {
     }
 
     const stats = products.reduce((acc, product) => {
-        acc.totalValue += product.unitPrice * product.stock;
+        const stock = product.currentStock || 0;
+        acc.totalValue += product.unitPrice * stock;
         acc.totalProducts += 1;
-        acc.potentialProfit += (product.salePrice - product.unitPrice) * product.stock;
+        acc.potentialProfit += (product.salePrice - product.unitPrice) * stock;
         return acc;
     }, { totalValue: 0, totalProducts: 0, potentialProfit: 0 });
 
@@ -192,7 +194,7 @@ async function loadProducts() {
         updateStats();
         // Seleccionar el primer producto si existe
         if (products.length > 0) {
-            selectProduct(0);
+            selectProduct(products[0].id);
         }
     } catch (error) {
         console.error('Error al cargar productos:', error);
@@ -239,12 +241,17 @@ function updateProductList() {
     productList.innerHTML = '';
     
     // Filtrar productos si hay una etiqueta seleccionada
-    const filteredProducts = selectedFilterTag 
+    let filteredProducts = selectedFilterTag 
         ? products.filter(product => 
             product.tags && product.tags.some(tag => tag.id === selectedFilterTag))
         : products;
     
-    filteredProducts.forEach((product, index) => {
+    // Ordenar alfabéticamente si está activo
+    if (isAlphaSortActive) {
+        filteredProducts = [...filteredProducts].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', {sensitivity: 'base'}));
+    }
+    
+    filteredProducts.forEach((product) => {
         const item = document.createElement('div');
         item.className = 'product-item';
         item.dataset.id = product.id;
@@ -257,9 +264,24 @@ function updateProductList() {
             <span class="product-name">${product.name || ''}</span>
             <span class="product-stock">${product.currentStock?.toLocaleString() || '0'}</span>
             <div class="product-tags">${tagsHtml}</div>
+            <button class="delete-product-btn" title="Eliminar producto" style="background:none;border:none;color:#d00;font-size:1.2em;cursor:pointer;float:right;">🗑️</button>
         `;
-        
-        item.addEventListener('click', () => selectProduct(products.findIndex(p => p.id === product.id)));
+        // Evento para seleccionar producto en todo el item, excepto el botón de eliminar
+        item.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-product-btn')) return;
+            selectProduct(product.id);
+        });
+        // Evento para eliminar producto
+        item.querySelector('.delete-product-btn').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const confirmDelete = confirm(`¿Seguro que deseas eliminar el producto "${product.name}"? Esta acción no se puede deshacer.`);
+            if (confirmDelete) {
+                const prodIndex = products.findIndex(p => p.id === product.id);
+                if (prodIndex !== -1) {
+                    await deleteProduct(prodIndex);
+                }
+            }
+        });
         productList.appendChild(item);
     });
 }
@@ -313,11 +335,12 @@ async function showEditDialog(message, currentValue) {
 }
 
 // Select a product to display its details
-function selectProduct(index) {
+function selectProduct(productId) {
     if (!elements.productDetails) {
         console.error('Product details element not found');
         return;
     }
+    const index = products.findIndex(p => p.id === productId);
     currentProductIndex = index;
     const product = products[index];
     if (product) {
@@ -355,8 +378,8 @@ function selectProduct(index) {
     }
     // Update selected state in list
     const productItems = elements.productList.querySelectorAll('.product-item');
-    productItems.forEach((item, i) => {
-        if (i === index) {
+    productItems.forEach((item) => {
+        if (item.dataset.id === String(productId)) {
             item.classList.add('selected');
             item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
@@ -407,7 +430,7 @@ async function addProduct(productData) {
         updateStats();
         // Seleccionar el último producto agregado
         if (products.length > 0) {
-            selectProduct(products.length - 1);
+            selectProduct(products[products.length - 1].id);
         }
         console.log('Producto agregado exitosamente');
     } catch (error) {
@@ -431,11 +454,11 @@ function updateProduct(index, productData) {
     products[index] = updatedProduct;
     saveProducts();
     updateProductList();
-    selectProduct(index);
+    selectProduct(products[index].id);
 }
 
 // Función para agregar stock
-function addStock(amount) {
+async function addStock(amount) {
     if (currentProductIndex === -1) {
         alert('Por favor seleccione un producto primero');
         return;
@@ -464,14 +487,14 @@ function addStock(amount) {
     product.periods.current.stockIn = (product.periods.current.stockIn || 0) + amount;
     
     // Guardar cambios
-    saveProducts();
+    await guardarProducto(product);
     updateProductList();
-    selectProduct(currentProductIndex);
+    selectProduct(product.id);
     updateFinancialAnalysis(product);
 }
 
 // Función para remover stock
-function removeStock(amount) {
+async function removeStock(amount) {
     if (currentProductIndex === -1) {
         alert('Por favor seleccione un producto primero');
         return;
@@ -513,9 +536,9 @@ function removeStock(amount) {
     product.periods.current.profit = (product.periods.current.profit || 0) + profitAmount;
     
     // Guardar cambios
-    saveProducts();
+    await guardarProducto(product);
     updateProductList();
-    selectProduct(currentProductIndex);
+    selectProduct(product.id);
     updateFinancialAnalysis(product);
 }
 
@@ -657,7 +680,7 @@ async function createNewPeriod() {
             
             currentPeriod = periodName;
             updatePeriodSelect();
-            selectProduct(currentProductIndex);
+            selectProduct(products[currentProductIndex].id);
             saveProducts();
             
             // Actualizar la vista para mostrar las estadísticas reseteadas
@@ -724,23 +747,28 @@ function updatePeriodSelect() {
 // Delete product
 async function deleteProduct(index) {
     try {
-        // Remove the product from the array
+        const productId = products[index].id; // Guarda el id antes de eliminar del array
         products.splice(index, 1);
-        
-        // Save the updated products list
-        await saveProducts();
-        
+        // Elimina de Firebase
+        await db.ref('productos/' + productId).remove();
+        // No llamar a saveProducts aquí
         // Handle the current product selection
         if (index === currentProductIndex) {
             currentProductIndex = -1;
-            showProductDetails(null);
+            selectProduct(-1);
         } else if (index < currentProductIndex) {
             currentProductIndex--;
         }
-        
-        // Update the product list
+        // Update the product list y estadísticas
         updateProductList();
-        
+        updateStats();
+        // Mantener el panel de inventario visible
+        if (elements && elements.mainContainer && elements.statsPanel) {
+            elements.mainContainer.style.display = 'flex';
+            elements.statsPanel.style.display = 'none';
+        }
+        // Mostrar notificación
+        showNotification('Producto eliminado exitosamente', 2000);
         console.log('Producto eliminado exitosamente');
     } catch (error) {
         console.error('Error al eliminar producto:', error);
@@ -779,7 +807,7 @@ function setupEventListeners(elements) {
             }
 
             if (products.length > 0 && currentProductIndex === -1) {
-                selectProduct(0);
+                selectProduct(products[0].id);
             }
             updateProductList();
             updateStats();
@@ -809,6 +837,12 @@ function setupEventListeners(elements) {
             e.preventDefault();
             console.log('Product form submitted');
             try {
+                // Validar que haya al menos una etiqueta seleccionada
+                const selectedTagsArr = getSelectedTags();
+                if (!selectedTagsArr || selectedTagsArr.length === 0) {
+                    showDialog('Error', 'Debe asignar al menos una etiqueta al producto.');
+                    return;
+                }
                 const formData = new FormData(elements.productForm);
                 const imageUrl = formData.get('productImage');
                 
@@ -823,7 +857,7 @@ function setupEventListeners(elements) {
                             salePrice: parseFloat(formData.get('salePrice')),
                             initialStock: parseInt(formData.get('initialStock')),
                             image: imageUrl && imageUrl.trim() !== '' ? imageUrl.trim() : (products[index].image || 'placeholder.svg'),
-                            tags: getSelectedTags()
+                            tags: selectedTagsArr
                         };
                         updateProduct(index, productData);
                     }
@@ -835,7 +869,7 @@ function setupEventListeners(elements) {
                         salePrice: parseFloat(formData.get('salePrice')),
                         initialStock: parseInt(formData.get('initialStock')),
                         image: imageUrl && imageUrl.trim() !== '' ? imageUrl.trim() : 'placeholder.svg',
-                        tags: getSelectedTags()
+                        tags: selectedTagsArr
                     };
                     await addProduct(productData);
                 }
@@ -893,7 +927,7 @@ function setupEventListeners(elements) {
     if (elements.prevProduct) {
         elements.prevProduct.addEventListener('click', () => {
             if (currentProductIndex > 0) {
-                selectProduct(currentProductIndex - 1);
+                selectProduct(products[currentProductIndex - 1].id);
             }
         });
     }
@@ -901,7 +935,7 @@ function setupEventListeners(elements) {
     if (elements.nextProduct) {
         elements.nextProduct.addEventListener('click', () => {
             if (currentProductIndex < products.length - 1) {
-                selectProduct(currentProductIndex + 1);
+                selectProduct(products[currentProductIndex + 1].id);
             }
         });
     }
@@ -951,9 +985,16 @@ function setupEventListeners(elements) {
                             case 'currentStock':
                                 product.currentStock = parseInt(newValue);
                                 break;
+                            case 'initialStock':
+                                product.initialStock = parseInt(newValue);
+                                product.currentStock = parseInt(newValue);
+                                if (product.periods && product.periods.current) {
+                                    product.periods.current.initialStock = parseInt(newValue);
+                                }
+                                break;
                         }
-                        saveProducts();
-                        selectProduct(currentProductIndex);
+                        await guardarProducto(product);
+                        selectProduct(product.id);
                         updateFinancialAnalysis(product);
                     }
                 }
@@ -991,7 +1032,7 @@ function setupEventListeners(elements) {
                     }
                     
                     await saveProducts();
-                    selectProduct(currentProductIndex);
+                    selectProduct(product.id);
                     showNotification('Imagen actualizada correctamente');
                 }
             }
@@ -1284,7 +1325,7 @@ function setupKeyboardNavigation() {
             
             if (currentIndex === -1) {
                 if (items.length > 0) {
-                    selectProduct(0);
+                    selectProduct(items[0].dataset.id);
                 }
                 return;
             }
@@ -1309,7 +1350,7 @@ function setupKeyboardNavigation() {
             }
             
             if (newIndex !== currentIndex) {
-                selectProduct(newIndex);
+                selectProduct(items[newIndex].dataset.id);
                 items[newIndex].focus();
                 
                 // Mostrar indicador de navegación
@@ -1607,7 +1648,7 @@ function renderMobileProductList() {
             <span class="product-stock">${product.currentStock?.toLocaleString() || '0'}</span>
         `;
         item.addEventListener('click', () => {
-            selectProduct(products.findIndex(p => p.id === product.id));
+            selectProduct(product.id);
             closeMobileProductListModal();
         });
         container.appendChild(item);
@@ -1986,3 +2027,17 @@ function showConfirmDialog(title, message) {
         dialog.querySelector('.dialog-cancel').addEventListener('click', handleCancel);
     });
 }
+
+// Lógica del botón de ordenamiento alfabético
+window.addEventListener('DOMContentLoaded', () => {
+    const toggleSortBtn = document.getElementById('toggleSortBtn');
+    if (toggleSortBtn) {
+        toggleSortBtn.addEventListener('click', () => {
+            isAlphaSortActive = !isAlphaSortActive;
+            toggleSortBtn.textContent = isAlphaSortActive ? 'Orden original' : 'Ordenar A-Z';
+            updateProductList();
+        });
+        // Asegura el texto correcto al cargar
+        toggleSortBtn.textContent = isAlphaSortActive ? 'Orden original' : 'Ordenar A-Z';
+    }
+});
