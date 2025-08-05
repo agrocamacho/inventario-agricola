@@ -1351,7 +1351,7 @@ function showPeriodsHistory() {
             }
         });
     });
-    
+
     // Event listeners para eliminar períodos
     document.querySelectorAll('.delete-period').forEach(button => {
         button.addEventListener('click', async () => {
@@ -2199,8 +2199,11 @@ async function editPeriodModal(period) {
             <div class="period-edit-form">
     `;
     
+    // Ordenar productos alfabéticamente para el modal
+    const sortedProducts = [...products].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', {sensitivity: 'base'}));
+    
     // Agregar campos editables para cada producto
-    products.forEach(product => {
+    sortedProducts.forEach(product => {
         const periodData = product.periods[period] || {
             stockIn: 0,
             stockOut: 0,
@@ -2295,12 +2298,19 @@ async function editPeriodModal(period) {
                     const unitPrice = parseFloat(productSection.querySelector('[data-field="unitPrice"]').value) || 0;
                     const salePrice = parseFloat(productSection.querySelector('[data-field="salePrice"]').value) || 0;
                     
+                    // Recalcular ventas y ganancias basadas en los nuevos valores
+                    const saleAmount = stockOut * salePrice;
+                    const costAmount = stockOut * unitPrice;
+                    const profitAmount = saleAmount - costAmount;
+                    
                     // Actualizar el período
                     product.periods[period].initialStock = initialStock;
                     product.periods[period].stockIn = stockIn;
                     product.periods[period].stockOut = stockOut;
                     product.periods[period].unitPrice = unitPrice;
                     product.periods[period].salePrice = salePrice;
+                    product.periods[period].sales = saleAmount;
+                    product.periods[period].profit = profitAmount;
                     
                     // Si es el último período, actualizar el currentStock y precios actuales del producto
                     const productPeriods = Object.keys(product.periods).filter(p => p !== 'current');
@@ -2329,6 +2339,7 @@ async function editPeriodModal(period) {
             showEditPeriodsModal();
             updateProductList();
             updateStats();
+            updatePeriodInfo();
             
         } catch (error) {
             console.error('Error al actualizar período:', error);
