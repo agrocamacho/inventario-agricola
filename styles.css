@@ -158,42 +158,35 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    margin-bottom: 12px;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    border: 1px solid #f0f0f0;
-    gap: 10px;
-    min-width: 0;
+    padding: 12px 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: white;
+    transition: all 0.2s ease;
+    cursor: pointer;
 }
 
 .product-item .product-name {
-    font-weight: 600;
-    font-size: 1em;
-    flex: 1 1 120px;
-    min-width: 0;
-    word-break: break-word;
-    margin-right: 8px;
+    flex: 1;
+    font-weight: 500;
+    color: #333;
+    margin-right: 12px;
 }
 
 .product-item .product-stock {
-    background: #f2f7ff;
+    font-weight: 600;
     color: #007aff;
-    border-radius: 8px;
-    padding: 2px 10px;
-    font-size: 1em;
-    margin-right: 8px;
-    min-width: 24px;
-    text-align: center;
+    margin-right: 12px;
+    min-width: 60px;
+    text-align: right;
 }
 
 .product-item .product-tags {
     display: flex;
-    flex-wrap: wrap;
     gap: 4px;
-    margin-right: 8px;
+    margin-right: 12px;
+    flex-wrap: wrap;
 }
 
 .product-item .product-tag {
@@ -2389,3 +2382,250 @@ body {
     animation: scaleIn 0.2s;
   }
 } 
+
+.edit-period-btn {
+  background: none;
+  border: none;
+  color: #007aff;
+  font-size: 1em;
+  cursor: pointer;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.edit-period-btn:hover {
+  background: #f0f8ff;
+}
+.stat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.stat-item span:first-child {
+  font-weight: 500;
+}
+.editable-period {
+  font-weight: 600;
+  color: #007aff;
+} 
+
+/* Estilos específicos para el botón de editar períodos */
+.period-edit-button {
+  background: #007aff !important;
+  color: white !important;
+  border: none !important;
+  padding: 8px 12px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  margin: 0 8px !important;
+  font-size: 14px !important;
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  font-weight: 500 !important;
+  transition: background 0.2s !important;
+}
+
+.period-edit-button:hover {
+  background: #0056cc !important;
+}
+
+.period-edit-button:active {
+  background: #004499 !important;
+}
+
+/* Asegurar que los botones en period-actions sean visibles */
+.period-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.period-actions button {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+} 
+
+/* Estilos para el modal de selección de períodos */
+.period-selection-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 20px 0;
+}
+
+.period-selection-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #f9f9f9;
+    transition: all 0.2s ease;
+}
+
+.period-selection-item:hover {
+    background: #f0f0f0;
+    border-color: #007aff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.period-info h3 {
+    margin: 0 0 5px 0;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.period-info p {
+    margin: 0;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.select-period-btn {
+    background: #007aff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.2s;
+}
+
+.select-period-btn:hover {
+    background: #0056cc;
+} 
+
+/* Estilos para la sección de guardado del producto */
+.product-save-section {
+    transition: all 0.3s ease;
+}
+
+.product-save-section button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#saveStatus {
+    transition: color 0.3s ease;
+}
+
+/* Estilos para campos en modo edición */
+.edit-mode {
+    background-color: #f8f9fa;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+
+/* Ajustar el contenedor de valores para acomodar múltiples botones */
+.value-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Estilos para las acciones de productos */
+.product-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.save-product-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.save-product-btn:hover {
+    background: #218838;
+}
+
+.save-product-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Estilos para el campo de búsqueda */
+.search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: white;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #007aff;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
+}
+
+.search-input::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+.search-input:hover {
+    border-color: #007aff;
+}
+
+/* Estilos para productos que coinciden con la búsqueda */
+.product-item.search-match {
+    background: #f8f9ff;
+    border-color: #007aff;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
+}
+
+.product-item.search-match .product-name {
+    color: #007aff;
+    font-weight: 600;
+}
+
+/* Estilos para el botón de limpiar búsqueda */
+.clear-search-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.clear-search-btn:hover {
+    background: #f0f0f0;
+    color: #666;
+}
+
+.clear-search-btn:active {
+    background: #e0e0e0;
+    color: #333;
+}
+
+/* Contenedor de búsqueda */
+.search-container {
+    position: relative;
+    margin-bottom: 10px;
+}

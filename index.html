@@ -90,9 +90,16 @@
                     <button id="addProductBtn" class="btn-primary">+ Nuevo Producto</button>
                     <button id="newPeriodBtn" class="btn-secondary">Finalizar Período</button>
                     <button id="viewPeriodsBtn" class="btn-secondary financial-data">📅 Ver Períodos</button>
+                    <button id="editPeriodsBtn" class="btn-secondary financial-data">✎ Editar Períodos</button>
                 </div>
             </div>
             <div class="filter-section">
+                <h3>Buscar por Nombre:</h3>
+                <div class="search-container" style="position: relative; margin-bottom: 10px;">
+                    <input type="text" id="searchProductInput" class="search-input" placeholder="Buscar productos..." style="width: 100%; padding: 8px 30px 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                    <button id="clearSearchBtn" class="clear-search-btn" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #999; cursor: pointer; font-size: 16px; display: none;">✕</button>
+                </div>
+                
                 <button id="toggleSortBtn" class="btn-secondary" style="margin-bottom:8px;">Ordenar A-Z</button>
                 <select id="filterTagSelect" class="tag-select">
                     <option value="">Todas las etiquetas</option>
@@ -161,6 +168,7 @@
                                     <button class="edit-btn" data-field="currentStock">✎</button>
                                 </div>
                             </div>
+
                         </div>
 
                         <div class="details-section financial-data">

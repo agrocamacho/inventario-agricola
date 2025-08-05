@@ -19,13 +19,13 @@ function obtenerTagsDesdeFirebase() {
 function loadTags() {
     obtenerTagsDesdeFirebase().then(fetchedTags => {
         tags = fetchedTags;
-        const tagSelect = document.getElementById('tagSelect');
-        tagSelect.innerHTML = '<option value="">Seleccionar etiqueta...</option>';
-        tags.forEach(tag => {
-            const option = document.createElement('option');
-            option.value = tag.id;
-            option.textContent = tag.name;
-            tagSelect.appendChild(option);
+    const tagSelect = document.getElementById('tagSelect');
+    tagSelect.innerHTML = '<option value="">Seleccionar etiqueta...</option>';
+    tags.forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag.id;
+        option.textContent = tag.name;
+        tagSelect.appendChild(option);
         });
     });
 }

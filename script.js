@@ -6,6 +6,11 @@ let elements = null;
 let currentPeriod = 'current';
 let selectedFilterTag = '';
 let isAlphaSortActive = false;
+let searchQuery = '';
+
+// Variables para rastrear cambios pendientes por producto
+let pendingChangesByProduct = {};
+let originalValuesByProduct = {};
 
 // DOM Elements
 let productList;
@@ -240,11 +245,18 @@ function updateProductList() {
 
     productList.innerHTML = '';
     
-    // Filtrar productos si hay una etiqueta seleccionada
+    // Filtrar productos por etiqueta seleccionada
     let filteredProducts = selectedFilterTag 
         ? products.filter(product => 
             product.tags && product.tags.some(tag => tag.id === selectedFilterTag))
         : products;
+    
+    // Filtrar productos por búsqueda de nombre
+    if (searchQuery) {
+        filteredProducts = filteredProducts.filter(product => 
+            (product.name || '').toLowerCase().includes(searchQuery)
+        );
+    }
     
     // Ordenar alfabéticamente si está activo
     if (isAlphaSortActive) {
@@ -254,6 +266,12 @@ function updateProductList() {
     filteredProducts.forEach((product) => {
         const item = document.createElement('div');
         item.className = 'product-item';
+        
+        // Agregar clase de resaltado si hay búsqueda activa
+        if (searchQuery && (product.name || '').toLowerCase().includes(searchQuery)) {
+            item.classList.add('search-match');
+        }
+        
         item.dataset.id = product.id;
         
         const tagsHtml = product.tags ? product.tags.map(tag => `
@@ -264,13 +282,27 @@ function updateProductList() {
             <span class="product-name">${product.name || ''}</span>
             <span class="product-stock">${product.currentStock?.toLocaleString() || '0'}</span>
             <div class="product-tags">${tagsHtml}</div>
-            <button class="delete-product-btn" title="Eliminar producto" style="background:none;border:none;color:#d00;font-size:1.2em;cursor:pointer;float:right;">🗑️</button>
+            <div class="product-actions">
+                <button class="save-product-btn" data-product-id="${product.id}" title="Guardar cambios" style="display:none; background:#28a745; color:white; border:none; border-radius:4px; padding:4px 8px; font-size:12px; cursor:pointer; margin-right:4px;">💾</button>
+                <button class="delete-product-btn" title="Eliminar producto" style="background:none;border:none;color:#d00;font-size:1.2em;cursor:pointer;">🗑️</button>
+            </div>
         `;
-        // Evento para seleccionar producto en todo el item, excepto el botón de eliminar
+        
+        // Evento para seleccionar producto en todo el item, excepto los botones
         item.addEventListener('click', (e) => {
-            if (e.target.closest('.delete-product-btn')) return;
+            if (e.target.closest('.delete-product-btn') || e.target.closest('.save-product-btn')) return;
             selectProduct(product.id);
         });
+        
+        // Evento para guardar producto individual
+        const saveBtn = item.querySelector('.save-product-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await saveIndividualProduct(product.id);
+            });
+        }
+        
         // Evento para eliminar producto
         item.querySelector('.delete-product-btn').addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -282,6 +314,7 @@ function updateProductList() {
                 }
             }
         });
+        
         productList.appendChild(item);
     });
 }
@@ -386,6 +419,16 @@ function selectProduct(productId) {
             item.classList.remove('selected');
         }
     });
+    
+    // Limpiar búsqueda cuando se selecciona un producto
+    if (searchQuery) {
+        const searchInput = document.getElementById('searchProductInput');
+        if (searchInput) {
+            searchInput.value = '';
+            searchQuery = '';
+            updateProductList();
+        }
+    }
 }
 
 // Update period-specific information
@@ -486,8 +529,9 @@ async function addStock(amount) {
     
     product.periods.current.stockIn = (product.periods.current.stockIn || 0) + amount;
     
-    // Guardar cambios
-    await guardarProducto(product);
+    // Guardar cambios optimizados
+    await actualizarStockYPreciosActuales(product.id, product.currentStock);
+    await guardarPeriodoProducto(product.id, 'current', product.periods.current);
     updateProductList();
     selectProduct(product.id);
     updateFinancialAnalysis(product);
@@ -535,8 +579,9 @@ async function removeStock(amount) {
     product.periods.current.sales = (product.periods.current.sales || 0) + saleAmount;
     product.periods.current.profit = (product.periods.current.profit || 0) + profitAmount;
     
-    // Guardar cambios
-    await guardarProducto(product);
+    // Guardar cambios optimizados
+    await actualizarStockYPreciosActuales(product.id, product.currentStock);
+    await guardarPeriodoProducto(product.id, 'current', product.periods.current);
     updateProductList();
     selectProduct(product.id);
     updateFinancialAnalysis(product);
@@ -950,6 +995,14 @@ function setupEventListeners(elements) {
         elements.viewPeriodsBtn.addEventListener('click', showPeriodsHistory);
     }
 
+    // Edit periods button
+    const editPeriodsBtn = document.getElementById('editPeriodsBtn');
+    if (editPeriodsBtn) {
+        editPeriodsBtn.addEventListener('click', () => {
+            showEditPeriodsModal();
+        });
+    }
+
     // Botón de reset de base de datos
     const resetDataBtn = document.getElementById('resetDataBtn');
     if (resetDataBtn) {
@@ -957,6 +1010,47 @@ function setupEventListeners(elements) {
     }
 
     // Agregar el evento para el selector de etiquetas de filtro
+    // Event listener para búsqueda por nombre
+    const searchProductInput = document.getElementById('searchProductInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    
+    if (searchProductInput) {
+        searchProductInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.toLowerCase().trim();
+            
+            // Mostrar/ocultar botón de limpiar
+            if (clearSearchBtn) {
+                clearSearchBtn.style.display = searchQuery ? 'block' : 'none';
+            }
+            
+            updateProductList();
+        });
+        
+        // Limpiar búsqueda con Escape
+        searchProductInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                clearSearch();
+            }
+        });
+    }
+    
+    // Event listener para botón de limpiar búsqueda
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', clearSearch);
+    }
+    
+    // Función para limpiar búsqueda
+    function clearSearch() {
+        if (searchProductInput) {
+            searchProductInput.value = '';
+        }
+        if (clearSearchBtn) {
+            clearSearchBtn.style.display = 'none';
+        }
+        searchQuery = '';
+        updateProductList();
+    }
+    
     const filterTagSelect = document.getElementById('filterTagSelect');
     if (filterTagSelect) {
         filterTagSelect.addEventListener('change', (e) => {
@@ -964,40 +1058,127 @@ function setupEventListeners(elements) {
         });
     }
 
-    // Edit buttons
+    // Edit buttons - Sistema de guardado individual por producto
     document.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
             const field = btn.dataset.field;
-            const currentValue = document.getElementById(field)?.textContent;
-            if (currentValue !== undefined) {
-                const newValue = await showEditDialog(`Ingrese el nuevo valor para ${field}:`, currentValue);
-                
-                if (newValue !== null) {
-                    const product = products[currentProductIndex];
-                    if (product) {
-                        switch (field) {
-                            case 'unitPrice':
-                                product.unitPrice = parseFloat(newValue);
-                                break;
-                            case 'salePrice':
-                                product.salePrice = parseFloat(newValue);
-                                break;
-                            case 'currentStock':
-                                product.currentStock = parseInt(newValue);
-                                break;
-                            case 'initialStock':
-                                product.initialStock = parseInt(newValue);
-                                product.currentStock = parseInt(newValue);
-                                if (product.periods && product.periods.current) {
-                                    product.periods.current.initialStock = parseInt(newValue);
-                                }
-                                break;
-                        }
-                        await guardarProducto(product);
-                        selectProduct(product.id);
-                        updateFinancialAnalysis(product);
-                    }
+            const valueSpan = document.getElementById(field);
+            const currentValue = valueSpan?.textContent;
+            
+            if (currentValue !== undefined && selectedProduct) {
+                // Inicializar cambios pendientes para este producto si no existe
+                if (!pendingChangesByProduct[selectedProduct]) {
+                    pendingChangesByProduct[selectedProduct] = {};
                 }
+                if (!originalValuesByProduct[selectedProduct]) {
+                    originalValuesByProduct[selectedProduct] = {};
+                }
+                
+                // Guardar valor original si es la primera edición de este campo
+                if (!originalValuesByProduct[selectedProduct][field]) {
+                    originalValuesByProduct[selectedProduct][field] = currentValue;
+                }
+                
+                // Crear input temporal para edición
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = field.includes('Price') ? '0.01' : '1';
+                input.value = currentValue.replace(/[^0-9.-]/g, '');
+                input.className = 'edit-mode';
+                input.style.width = '80px';
+                input.style.marginRight = '4px';
+                
+                // Reemplazar el span con el input
+                valueSpan.style.display = 'none';
+                valueSpan.parentNode.insertBefore(input, valueSpan);
+                input.focus();
+                input.select();
+                
+                // Ocultar botón de editar
+                btn.style.display = 'none';
+                
+                // Función para actualizar cambios pendientes
+                const updatePendingChanges = () => {
+                    const newValue = input.value;
+                    if (newValue !== originalValuesByProduct[selectedProduct][field]) {
+                        pendingChangesByProduct[selectedProduct][field] = newValue;
+                    } else {
+                        delete pendingChangesByProduct[selectedProduct][field];
+                    }
+                    
+                    // Actualizar botón de guardar del producto
+                    updateProductSaveButton(selectedProduct);
+                    
+                    // Debug: mostrar en consola
+                    console.log('Cambios pendientes para', selectedProduct, ':', pendingChangesByProduct[selectedProduct]);
+                };
+                
+                // Función para restaurar vista normal
+                const restoreNormalView = () => {
+                    // Remover input
+                    if (input.parentNode) {
+                        input.parentNode.removeChild(input);
+                    }
+                    
+                    // Mostrar span original
+                    valueSpan.style.display = 'inline';
+                    
+                    // Mostrar botón de editar
+                    btn.style.display = 'inline-block';
+                };
+                
+                // Event listeners para input
+                input.addEventListener('input', updatePendingChanges);
+                
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        // Solo actualizar el valor visual, no guardar aún
+                        const newValue = input.value;
+                        if (field.includes('Price')) {
+                            valueSpan.textContent = `$${parseFloat(newValue || 0).toFixed(2)}`;
+                        } else {
+                            valueSpan.textContent = parseInt(newValue || 0);
+                        }
+                        restoreNormalView();
+                        updatePendingChanges();
+                        
+                        // Forzar actualización de la lista para mostrar el botón
+                        setTimeout(() => {
+                            updateProductList();
+                            updateProductSaveButton(selectedProduct);
+                        }, 100);
+                    } else if (e.key === 'Escape') {
+                        // Restaurar valor original
+                        valueSpan.textContent = originalValuesByProduct[selectedProduct][field];
+                        restoreNormalView();
+                        delete pendingChangesByProduct[selectedProduct][field];
+                        updateProductSaveButton(selectedProduct);
+                        
+                        // Forzar actualización de la lista
+                        setTimeout(() => {
+                            updateProductList();
+                            updateProductSaveButton(selectedProduct);
+                        }, 100);
+                    }
+                });
+                
+                input.addEventListener('blur', () => {
+                    // Al perder el foco, actualizar el valor visual
+                    const newValue = input.value;
+                    if (field.includes('Price')) {
+                        valueSpan.textContent = `$${parseFloat(newValue || 0).toFixed(2)}`;
+                    } else {
+                        valueSpan.textContent = parseInt(newValue || 0);
+                    }
+                    restoreNormalView();
+                    updatePendingChanges();
+                    
+                    // Forzar actualización de la lista para mostrar el botón
+                    setTimeout(() => {
+                        updateProductList();
+                        updateProductSaveButton(selectedProduct);
+                    }, 100);
+                });
             }
         });
     });
@@ -1031,7 +1212,7 @@ function setupEventListeners(elements) {
                         }
                     }
                     
-                    await saveProducts();
+                    await guardarCampoProducto(product.id, 'image', product.image);
                     selectProduct(product.id);
                     showNotification('Imagen actualizada correctamente');
                 }
@@ -1042,10 +1223,16 @@ function setupEventListeners(elements) {
     console.log('Event listeners setup completed');
 }
 
-// Función para mostrar el historial de períodos
+// Función para mostrar el historial de períodos - VERSIÓN SIMPLIFICADA
 function showPeriodsHistory() {
+    console.log('showPeriodsHistory ejecutándose...'); // Debug
     const periodsHistoryModal = document.getElementById('periodsHistoryModal');
     const periodsList = document.getElementById('periodsList');
+    
+    if (!periodsHistoryModal || !periodsList) {
+        console.error('No se encontraron los elementos del modal de períodos');
+        return;
+    }
     
     // Limpiar la lista actual
     periodsList.innerHTML = '';
@@ -1062,6 +1249,8 @@ function showPeriodsHistory() {
         }
     });
     
+    console.log('Períodos encontrados:', allPeriods.size); // Debug
+    
     // Convertir a array y ordenar por fecha (más reciente primero)
     const sortedPeriods = Array.from(allPeriods).sort((a, b) => {
         const [aStart, aEnd] = a.split('_');
@@ -1069,7 +1258,7 @@ function showPeriodsHistory() {
         return new Date(bEnd) - new Date(aEnd);
     });
     
-    // Crear elementos para cada período
+    // Crear elementos para cada período - VERSIÓN SIMPLIFICADA
     sortedPeriods.forEach(period => {
         const [start, end] = period.split('_');
         const startDate = new Date(start);
@@ -1101,11 +1290,13 @@ function showPeriodsHistory() {
             totalProfit: 0
         });
         
+        // HTML MUY SIMPLIFICADO - solo lo esencial
         periodElement.innerHTML = `
             <div class="period-header">
                 <h3>${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h3>
                 <div class="period-actions">
                     <button class="btn-secondary view-period-details" data-period="${period}">Ver Detalles</button>
+                    <button class="period-edit-button" data-period="${period}">✎ Editar</button>
                     <button class="btn-danger delete-period" data-period="${period}" title="Eliminar período">🗑️</button>
                 </div>
             </div>
@@ -1127,100 +1318,48 @@ function showPeriodsHistory() {
                     <span>${formatNumber(periodStats.totalProfit)}</span>
                 </div>
             </div>
-            <div class="period-details" id="details-${period}" style="display: none;">
-                <h4>Detalles por Producto</h4>
-                <div class="product-period-list">
-                    ${products.map(product => {
-                        const periodData = product.periods[period] || {
-                            stockIn: 0,
-                            stockOut: 0,
-                            sales: 0,
-                            profit: 0,
-                            initialStock: 0,
-                            unitPrice: product.unitPrice,
-                            salePrice: product.salePrice
-                        };
-                        return `
-                            <div class="product-period-item">
-                                <h5>${product.name}</h5>
-                                <div class="product-period-stats">
-                                    <div class="stats-group">
-                                        <div class="stats-group-title">Información Inicial</div>
-                                        <div class="stat-item">
-                                            <span>Stock Inicial:</span>
-                                            <span>${periodData.initialStock.toLocaleString('es-ES')}</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span>Precio Unitario:</span>
-                                            <span>${formatNumber(periodData.unitPrice || product.unitPrice)}</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span>Precio de Venta:</span>
-                                            <span>${formatNumber(periodData.salePrice || product.salePrice)}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="stats-group">
-                                        <div class="stats-group-title">Movimientos</div>
-                                        <div class="stat-item">
-                                            <span>Entradas:</span>
-                                            <span>${periodData.stockIn.toLocaleString('es-ES')}</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span>Salidas:</span>
-                                            <span>${periodData.stockOut.toLocaleString('es-ES')}</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span>Stock Final:</span>
-                                            <span>${(periodData.initialStock + periodData.stockIn - periodData.stockOut).toLocaleString('es-ES')}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="stats-group">
-                                        <div class="stats-group-title">Resultados</div>
-                                        <div class="stat-item">
-                                            <span>Ventas:</span>
-                                            <span>${formatNumber(periodData.sales)}</span>
-                                        </div>
-                                        <div class="stat-item">
-                                            <span>Ganancia:</span>
-                                            <span>${formatNumber(periodData.profit)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
         `;
         
         periodsList.appendChild(periodElement);
+        
+        // Agregar event listener inmediatamente después de crear el botón
+        const editButton = periodElement.querySelector('.period-edit-button');
+        if (editButton) {
+            console.log('Botón encontrado y agregando event listener:', editButton); // Debug
+            editButton.addEventListener('click', async (e) => {
+                console.log('Botón editar clickeado'); // Debug
+                const period = editButton.getAttribute('data-period');
+                await editPeriodModal(period);
+            });
+        } else {
+            console.error('No se encontró el botón de editar en el período:', period); // Debug
+        }
+        
+        console.log('Período agregado:', period); // Debug
     });
     
     // Mostrar el modal
     periodsHistoryModal.style.display = 'block';
     
-    // Agregar event listeners para los botones de detalles
+    // Event listeners para los botones de detalles
     document.querySelectorAll('.view-period-details').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const period = e.target.dataset.period;
+        button.addEventListener('click', () => {
+            const period = button.getAttribute('data-period');
             const detailsElement = document.getElementById(`details-${period}`);
-            if (detailsElement.style.display === 'none') {
-                detailsElement.style.display = 'block';
-                e.target.textContent = 'Ocultar Detalles';
-            } else {
-                detailsElement.style.display = 'none';
-                e.target.textContent = 'Ver Detalles';
+            if (detailsElement) {
+                detailsElement.style.display = detailsElement.style.display === 'none' ? 'block' : 'none';
             }
         });
     });
-
-    // Agregar event listeners para los botones de eliminar
+    
+    // Event listeners para eliminar períodos
     document.querySelectorAll('.delete-period').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const period = e.target.dataset.period;
-            deletePeriod(period);
+        button.addEventListener('click', async () => {
+            const period = button.getAttribute('data-period');
+            const confirmed = confirm(`¿Está seguro de que desea eliminar el período "${period}"? Esta acción no se puede deshacer.`);
+            if (confirmed) {
+                await deletePeriod(period);
+            }
         });
     });
 }
@@ -2041,3 +2180,392 @@ window.addEventListener('DOMContentLoaded', () => {
         toggleSortBtn.textContent = isAlphaSortActive ? 'Orden original' : 'Ordenar A-Z';
     }
 });
+
+// Función para mostrar modal de edición de período
+async function editPeriodModal(period) {
+    const [start, end] = period.split('_');
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    
+    // Crear modal de edición
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.style.zIndex = '2000';
+    
+    let modalContent = `
+        <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+            <h2>Editar Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h2>
+            <div class="period-edit-form">
+    `;
+    
+    // Agregar campos editables para cada producto
+    products.forEach(product => {
+        const periodData = product.periods[period] || {
+            stockIn: 0,
+            stockOut: 0,
+            sales: 0,
+            profit: 0,
+            initialStock: 0,
+            unitPrice: product.unitPrice,
+            salePrice: product.salePrice
+        };
+        
+        // Determinar si es el último período del producto
+        const productPeriods = Object.keys(product.periods || {}).filter(p => p !== 'current');
+        const isLastPeriod = productPeriods.length > 0 && period === productPeriods.sort((a, b) => {
+            const [aStart, aEnd] = a.split('_');
+            const [bStart, bEnd] = b.split('_');
+            return new Date(bEnd) - new Date(aEnd);
+        })[0];
+        
+        modalContent += `
+            <div class="product-edit-section" data-product-id="${product.id}">
+                <h3>${product.name}</h3>
+                <div class="edit-fields">
+                    <div class="form-group">
+                        <label>Stock Inicial:</label>
+                        <input type="number" class="edit-field" data-field="initialStock" value="${periodData.initialStock || 0}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Entradas:</label>
+                        <input type="number" class="edit-field" data-field="stockIn" value="${periodData.stockIn || 0}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Salidas:</label>
+                        <input type="number" class="edit-field" data-field="stockOut" value="${periodData.stockOut || 0}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Precio Unitario:</label>
+                        <input type="number" class="edit-field" data-field="unitPrice" value="${periodData.unitPrice || product.unitPrice || 0}" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Precio de Venta:</label>
+                        <input type="number" class="edit-field" data-field="salePrice" value="${periodData.salePrice || product.salePrice || 0}" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Stock Final Calculado:</label>
+                        <span class="calculated-final">${(periodData.initialStock || 0) + (periodData.stockIn || 0) - (periodData.stockOut || 0)}</span>
+                        ${isLastPeriod ? '<small style="color: #007aff;">(Este valor se usará como stock actual del producto)</small>' : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    modalContent += `
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-primary" id="savePeriodChanges">Guardar Cambios</button>
+                <button class="btn-secondary" id="cancelPeriodEdit">Cancelar</button>
+            </div>
+        </div>
+    `;
+    
+    modal.innerHTML = modalContent;
+    document.body.appendChild(modal);
+    
+    // Event listeners para el modal
+    const saveBtn = modal.querySelector('#savePeriodChanges');
+    const cancelBtn = modal.querySelector('#cancelPeriodEdit');
+    
+    // Actualizar stock final calculado cuando cambien los valores
+    modal.querySelectorAll('.edit-field').forEach(input => {
+        input.addEventListener('input', () => {
+            const productSection = input.closest('.product-edit-section');
+            const initialStock = parseInt(productSection.querySelector('[data-field="initialStock"]').value) || 0;
+            const stockIn = parseInt(productSection.querySelector('[data-field="stockIn"]').value) || 0;
+            const stockOut = parseInt(productSection.querySelector('[data-field="stockOut"]').value) || 0;
+            const calculatedFinal = productSection.querySelector('.calculated-final');
+            calculatedFinal.textContent = initialStock + stockIn - stockOut;
+        });
+    });
+    
+    // Guardar cambios
+    saveBtn.addEventListener('click', async () => {
+        try {
+            for (const productSection of modal.querySelectorAll('.product-edit-section')) {
+                const productId = productSection.getAttribute('data-product-id');
+                const product = products.find(p => p.id === productId);
+                
+                if (product && product.periods && product.periods[period]) {
+                    const initialStock = parseInt(productSection.querySelector('[data-field="initialStock"]').value) || 0;
+                    const stockIn = parseInt(productSection.querySelector('[data-field="stockIn"]').value) || 0;
+                    const stockOut = parseInt(productSection.querySelector('[data-field="stockOut"]').value) || 0;
+                    const unitPrice = parseFloat(productSection.querySelector('[data-field="unitPrice"]').value) || 0;
+                    const salePrice = parseFloat(productSection.querySelector('[data-field="salePrice"]').value) || 0;
+                    
+                    // Actualizar el período
+                    product.periods[period].initialStock = initialStock;
+                    product.periods[period].stockIn = stockIn;
+                    product.periods[period].stockOut = stockOut;
+                    product.periods[period].unitPrice = unitPrice;
+                    product.periods[period].salePrice = salePrice;
+                    
+                    // Si es el último período, actualizar el currentStock y precios actuales del producto
+                    const productPeriods = Object.keys(product.periods).filter(p => p !== 'current');
+                    const isLastPeriod = productPeriods.length > 0 && period === productPeriods.sort((a, b) => {
+                        const [aStart, aEnd] = a.split('_');
+                        const [bStart, bEnd] = b.split('_');
+                        return new Date(bEnd) - new Date(aEnd);
+                    })[0];
+                    
+                    if (isLastPeriod) {
+                        product.currentStock = initialStock + stockIn - stockOut;
+                        product.unitPrice = unitPrice;
+                        product.salePrice = salePrice;
+                        
+                        // Guardar stock y precios actuales optimizados
+                        await actualizarStockYPreciosActuales(product.id, product.currentStock, product.unitPrice, product.salePrice);
+                    }
+                    
+                    // Guardar solo el período específico
+                    await guardarPeriodoProducto(product.id, period, product.periods[period]);
+                }
+            }
+            
+            document.body.removeChild(modal);
+            showNotification('Período actualizado correctamente', 2000);
+            showEditPeriodsModal();
+            updateProductList();
+            updateStats();
+            
+        } catch (error) {
+            console.error('Error al actualizar período:', error);
+            showDialog('Error', 'No se pudieron guardar los cambios del período.');
+        }
+    });
+    
+    // Cancelar
+    cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    
+    // Cerrar al hacer clic fuera del modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+// Función para mostrar modal de edición de períodos independiente
+function showEditPeriodsModal() {
+    console.log('Mostrando modal de edición de períodos...');
+    
+    // Obtener todos los períodos únicos de todos los productos
+    const allPeriods = new Set();
+    products.forEach(product => {
+        if (product.periods) {
+            Object.keys(product.periods).forEach(period => {
+                if (period !== 'current') {
+                    allPeriods.add(period);
+                }
+            });
+        }
+    });
+    
+    if (allPeriods.size === 0) {
+        showDialog('Información', 'No hay períodos para editar. Primero debe crear un período.');
+        return;
+    }
+    
+    // Convertir a array y ordenar por fecha (más reciente primero)
+    const sortedPeriods = Array.from(allPeriods).sort((a, b) => {
+        const [aStart, aEnd] = a.split('_');
+        const [bStart, bEnd] = b.split('_');
+        return new Date(bEnd) - new Date(aEnd);
+    });
+    
+    // Crear modal de selección de período
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.style.zIndex = '2000';
+    
+    let modalContent = `
+        <div class="modal-content" style="max-width: 500px;">
+            <h2>Seleccionar Período para Editar</h2>
+            <div class="period-selection-list">
+    `;
+    
+    // Crear lista de períodos disponibles
+    sortedPeriods.forEach(period => {
+        const [start, end] = period.split('_');
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        
+        modalContent += `
+            <div class="period-selection-item" data-period="${period}">
+                <div class="period-info">
+                    <h3>${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h3>
+                    <p>Haga clic para editar este período</p>
+                </div>
+                <button class="btn-primary select-period-btn" data-period="${period}">Editar</button>
+            </div>
+        `;
+    });
+    
+    modalContent += `
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" id="cancelEditPeriods">Cancelar</button>
+            </div>
+        </div>
+    `;
+    
+    modal.innerHTML = modalContent;
+    document.body.appendChild(modal);
+    
+    // Event listeners para seleccionar período
+    modal.querySelectorAll('.select-period-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const period = btn.getAttribute('data-period');
+            document.body.removeChild(modal);
+            await editPeriodModal(period);
+        });
+    });
+    
+    // Cancelar
+    modal.querySelector('#cancelEditPeriods').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    
+    // Cerrar al hacer clic fuera del modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+// Función optimizada para guardar solo campos específicos de un producto
+async function guardarCampoProducto(productId, campo, valor) {
+    try {
+        await db.ref(`productos/${productId}/${campo}`).set(valor);
+        console.log(`Campo ${campo} actualizado en Firebase para producto ${productId}`);
+    } catch (error) {
+        console.error(`Error al actualizar campo ${campo} en Firebase:`, error);
+        throw error;
+    }
+}
+
+// Función optimizada para guardar solo un período específico
+async function guardarPeriodoProducto(productId, periodo, datosPeriodo) {
+    try {
+        await db.ref(`productos/${productId}/periods/${periodo}`).set(datosPeriodo);
+        console.log(`Período ${periodo} actualizado en Firebase para producto ${productId}`);
+    } catch (error) {
+        console.error(`Error al actualizar período ${periodo} en Firebase:`, error);
+        throw error;
+    }
+}
+
+// Función optimizada para actualizar stock y precios actuales
+async function actualizarStockYPreciosActuales(productId, currentStock, unitPrice, salePrice) {
+    try {
+        const updates = {};
+        if (currentStock !== undefined) updates.currentStock = currentStock;
+        if (unitPrice !== undefined) updates.unitPrice = unitPrice;
+        if (salePrice !== undefined) updates.salePrice = salePrice;
+        
+        await db.ref(`productos/${productId}`).update(updates);
+        console.log(`Stock y precios actualizados en Firebase para producto ${productId}`);
+    } catch (error) {
+        console.error('Error al actualizar stock y precios en Firebase:', error);
+        throw error;
+    }
+}
+
+// Función optimizada para actualizar solo las etiquetas
+async function actualizarEtiquetasProducto(productId, etiquetas) {
+    try {
+        await db.ref(`productos/${productId}/tags`).set(etiquetas);
+        console.log(`Etiquetas actualizadas en Firebase para producto ${productId}`);
+    } catch (error) {
+        console.error('Error al actualizar etiquetas en Firebase:', error);
+        throw error;
+    }
+}
+
+// Función para guardar un producto individual
+async function saveIndividualProduct(productId) {
+    const product = products.find(p => p.id === productId);
+    const pendingChanges = pendingChangesByProduct[productId];
+    
+    if (!product || !pendingChanges || Object.keys(pendingChanges).length === 0) {
+        showNotification('No hay cambios pendientes para guardar', 2000);
+        return;
+    }
+    
+    try {
+        // Guardar cada cambio pendiente
+        for (const [field, newValue] of Object.entries(pendingChanges)) {
+            switch (field) {
+                case 'unitPrice':
+                    product.unitPrice = parseFloat(newValue) || 0;
+                    await guardarCampoProducto(product.id, 'unitPrice', product.unitPrice);
+                    break;
+                case 'salePrice':
+                    product.salePrice = parseFloat(newValue) || 0;
+                    await guardarCampoProducto(product.id, 'salePrice', product.salePrice);
+                    break;
+                case 'currentStock':
+                    product.currentStock = parseInt(newValue) || 0;
+                    await actualizarStockYPreciosActuales(product.id, product.currentStock);
+                    break;
+                case 'initialStock':
+                    product.initialStock = parseInt(newValue) || 0;
+                    product.currentStock = parseInt(newValue) || 0;
+                    if (product.periods && product.periods.current) {
+                        product.periods.current.initialStock = parseInt(newValue) || 0;
+                        await guardarPeriodoProducto(product.id, 'current', product.periods.current);
+                    }
+                    await actualizarStockYPreciosActuales(product.id, product.currentStock);
+                    await guardarCampoProducto(product.id, 'initialStock', product.initialStock);
+                    break;
+            }
+        }
+        
+        // Limpiar cambios pendientes para este producto
+        delete pendingChangesByProduct[productId];
+        delete originalValuesByProduct[productId];
+        
+        // Actualizar UI
+        updateProductList();
+        if (selectedProduct === productId) {
+            selectProduct(productId);
+            updateStats();
+        }
+        
+        // Mostrar notificación
+        showNotification(`Producto "${product.name}" actualizado correctamente`, 2000);
+        
+    } catch (error) {
+        console.error('Error al guardar producto individual:', error);
+        showDialog('Error', 'No se pudieron guardar los cambios del producto.');
+    }
+}
+
+// Función para actualizar el botón de guardar de un producto específico
+function updateProductSaveButton(productId) {
+    const saveBtn = document.querySelector(`.save-product-btn[data-product-id="${productId}"]`);
+    const pendingChanges = pendingChangesByProduct[productId];
+    
+    console.log('Actualizando botón para producto:', productId);
+    console.log('Botón encontrado:', saveBtn);
+    console.log('Cambios pendientes:', pendingChanges);
+    
+    if (saveBtn) {
+        if (pendingChanges && Object.keys(pendingChanges).length > 0) {
+            saveBtn.style.display = 'inline-block';
+            saveBtn.title = `Guardar cambios (${Object.keys(pendingChanges).length} campo${Object.keys(pendingChanges).length > 1 ? 's' : ''})`;
+            console.log('Botón mostrado para producto:', productId);
+        } else {
+            saveBtn.style.display = 'none';
+            console.log('Botón ocultado para producto:', productId);
+        }
+    } else {
+        console.log('No se encontró el botón para producto:', productId);
+    }
+}
