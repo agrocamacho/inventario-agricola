@@ -1,836 +1,1024 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgroCamacho V11 - Auditoría Mejorada</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroCamacho V9.1 - Control Total (Corregido)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-    <style>
-        /* Estilos Base */
-        .category-pill { cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
-        .category-pill.active { transform: scale(1.05); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); font-weight: bold; border-color: rgba(0,0,0,0.2); }
-        .tab-btn.active { border-bottom: 3px solid #059669; color: #059669; font-weight: bold; }
-        .product-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; background: #f3f4f6; }
-        .modal { transition: opacity 0.25s ease; position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        select[size] { height: auto; max-height: 200px; }
-        .report-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
-        button { transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
-        .period-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .period-card:hover { transform: translateY(-2px); }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
+<style>
+/* Estilos Originales V9.1 */
+.category-pill { cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+.category-pill.active { transform: scale(1.05); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); font-weight: bold; border-color: rgba(0,0,0,0.2); }
+.tab-btn.active { border-bottom: 3px solid #059669; color: #059669; font-weight: bold; }
+.product-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; background: #f3f4f6; }
+.modal { transition: opacity 0.25s ease; position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+select[size] { height: auto; max-height: 200px; }
+.report-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+button { transition: transform 0.1s; }
+button:active { transform: scale(0.98); }
 
-        /* Pantallas de Bloqueo y Login */
-        .lock-screen-bg { background: rgba(239, 68, 68, 0.9); backdrop-filter: blur(10px); }
-    </style>
+/* Estilos Nuevos traídos de V10 para la sección de Periodos */
+.period-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.period-card:hover { transform: translateY(-2px); }
+.btn-new-float:hover { transform: scale(1.1) rotate(90deg); }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ========================================== */
+/* NUEVOS ESTILOS PARA AUDITORÍA V10.1 */
+/* ========================================== */
+.audit-table-container {
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+.audit-row {
+    transition: all 0.2s;
+}
+.audit-row:hover {
+    background-color: #f9fafb;
+    transform: scale-[1.005];
+}
+.audit-badge {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    letter-spacing: -0.025em;
+}
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ========================================== */
+/* ESTILOS LOGIN Y MANTENIMIENTO */
+/* ========================================== */
+.auth-screen {
+    background: linear-gradient(135deg, #064e3b 0%, #059669 100%);
+}
+/* Ocultar columna de costo para operario */
+.hide-cost-col th:nth-child(4), 
+.hide-cost-col td:nth-child(4) {
+    display: none;
+}
+/* Toast de notificación */
+#toast-container {
+    position: fixed; bottom: 20px; right: 20px; z-index: 4000;
+}
+</style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
 
-    <!-- LOADER -->
-    <div id="loader" class="loading-overlay">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800 mb-4"></div>
-        <p class="font-bold text-emerald-800 italic uppercase tracking-tighter">Cargando Sistema...</p>
-    </div>
+<!-- LOADER INICIAL -->
+<div id="loader" class="loading-overlay">
+<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-800 mb-4"></div>
+<p class="font-bold text-emerald-800 italic uppercase tracking-tighter">Cargando AgroCamacho...</p>
+</div>
 
-    <!-- PANTALLA DE BLOQUEO REMOTO (ACTIVADO POR FIREBASE CONSOLE) -->
-    <div id="lock-screen" class="fixed inset-0 z-[5000] lock-screen-bg hidden flex flex-col items-center justify-center text-white text-center p-6">
-        <div class="text-6xl mb-6 animate-pulse">🔒</div>
-        <h1 class="text-3xl font-black uppercase mb-4">Sistema Bloqueado</h1>
-        <p id="lock-message" class="text-xl font-bold max-w-lg">El sistema ha sido bloqueado por el administrador.</p>
-        <p class="mt-4 text-sm opacity-75">Contacte al administrador para más información.</p>
-    </div>
+<!-- PANTALLA DE MANTENIMIENTO -->
+<div id="maintenance-screen" class="hidden fixed inset-0 z-[3000] bg-gray-50 flex flex-col items-center justify-center p-4">
+<div class="bg-white p-8 rounded-[3rem] shadow-2xl max-w-md w-full text-center border-4 border-red-500">
+<div class="text-6xl mb-4">🚧</div>
+<h1 class="text-3xl font-black text-gray-800 uppercase mb-4">Sistema Temporalmente Fuera de Servicio</h1>
+<p id="maintenance-msg" class="text-gray-600 font-bold text-lg leading-relaxed mb-8">El sistema se encuentra temporalmente bloqueado por administración.</p>
+<div class="text-xs text-gray-400 font-mono">AGROCAMACHO V9.1 - LOCK MODE</div>
+</div>
+</div>
 
-    <!-- PANTALLA DE CONFIGURACIÓN INICIAL -->
-    <div id="setup-screen" class="fixed inset-0 z-[4000] bg-white hidden flex flex-col items-center justify-center p-6">
-        <div class="max-w-md w-full bg-emerald-50 p-8 rounded-[3rem] shadow-2xl border-4 border-emerald-600 text-center">
-            <h2 class="text-3xl font-black text-emerald-900 uppercase mb-2">Configuración Inicial</h2>
-            <p class="text-sm text-emerald-700 mb-6">No se detectan usuarios. Cree la cuenta ADMINISTRADOR principal.</p>
-            <div class="space-y-4 text-left">
-                <input type="text" id="setup-name" placeholder="Nombre completo" class="w-full p-4 rounded-xl border-2 border-emerald-200 outline-none focus:border-emerald-600 font-bold uppercase">
-                <input type="password" id="setup-pass" placeholder="Contraseña" class="w-full p-4 rounded-xl border-2 border-emerald-200 outline-none focus:border-emerald-600 font-bold">
-                <button onclick="createFirstAdmin()" class="w-full bg-emerald-900 text-white py-4 rounded-xl font-black uppercase hover:bg-black shadow-lg">Crear Sistema</button>
+<!-- PANTALLA DE LOGIN -->
+<div id="login-screen" class="auth-screen fixed inset-0 z-[3000] flex flex-col items-center justify-center p-4">
+<div class="bg-white p-8 rounded-[3rem] shadow-2xl max-w-sm w-full border border-white/20">
+<div class="text-center mb-8">
+<div class="inline-block p-4 rounded-full bg-emerald-100 text-emerald-800 mb-4 text-3xl">🔐</div>
+<h1 class="text-2xl font-black text-emerald-900 uppercase italic tracking-tight">Acceso Restringido</h1>
+<p class="text-xs text-gray-400 font-bold uppercase mt-1">Identifícate para continuar</p>
+</div>
+<div class="space-y-4">
+<div>
+<label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Usuario</label>
+<input type="text" id="login-user" class="w-full p-4 bg-gray-50 rounded-xl font-bold border-none focus:ring-2 focus:ring-emerald-500 outline-none uppercase" placeholder="EJ: ADMIN">
+</div>
+<div>
+<label class="text-[10px] font-bold text-gray-400 uppercase ml-2">Contraseña</label>
+<input type="password" id="login-pass" class="w-full p-4 bg-gray-50 rounded-xl font-bold border-none focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="••••••">
+</div>
+<div id="login-error" class="hidden text-red-500 text-[10px] font-bold text-center bg-red-50 p-2 rounded-lg border border-red-100">
+Usuario o contraseña incorrectos
+</div>
+<button onclick="attemptLogin()" class="w-full py-4 bg-emerald-900 text-white rounded-xl font-black uppercase shadow-lg hover:bg-black transition-all">Ingresar al Sistema</button>
+</div>
+</div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="main-app" class="hidden transition-opacity duration-500">
+<nav class="bg-emerald-800 text-white p-4 shadow-lg sticky top-0 z-50">
+<div class="container mx-auto flex justify-between items-center">
+<div>
+<h1 class="text-2xl font-black tracking-tighter">AGROCAMACHO</h1>
+<p class="text-[10px] text-emerald-200 uppercase font-bold tracking-widest">Sistema de Auditoría y Control</p>
+</div>
+<div class="flex items-center gap-4">
+<div id="sync-status" class="text-[10px] bg-emerald-700 px-4 py-1.5 rounded-full font-bold uppercase border border-emerald-600">En Línea</div>
+<div class="flex flex-col items-end">
+<span id="current-user-display" class="text-[10px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded uppercase"></span>
+<button onclick="logout()" class="text-[9px] text-red-300 hover:text-white underline uppercase font-bold tracking-wider">Cerrar Sesión</button>
+</div>
+</div>
+</div>
+</nav>
+
+<div class="container mx-auto p-4 md:p-6">
+<div class="flex border-b mb-6 bg-white rounded-t-xl px-4 shadow-sm overflow-x-auto">
+<button onclick="showSection('inventario')" id="tab-inventario" class="tab-btn active px-6 py-4 text-sm uppercase whitespace-nowrap">Inventario</button>
+<button onclick="showSection('periodos')" id="tab-periodos" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-blue-600">Ventas y Turnos ⏱️</button>
+<!-- SECCIONES SOLO ADMIN -->
+<button onclick="showSection('editar')" id="tab-editar" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-emerald-700 admin-only">Maestro Productos 🛠️</button>
+<button onclick="showSection('usuarios')" id="tab-usuarios" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-purple-600 admin-only">Usuarios 👥</button>
+<button onclick="showSection('historial')" id="tab-historial" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-red-600 admin-only">Auditoría Global 🚩</button>
+</div>
+
+<!-- ========================================== -->
+<!-- SECCIÓN USUARIOS (NUEVO) - FUERA DE INVENTARIO -->
+<!-- ========================================== -->
+<div id="section-usuarios" class="section-content hidden admin-only">
+    <div class="flex flex-col md:flex-row gap-6">
+        <!-- Formulario Crear -->
+        <div class="md:w-1/3 bg-white p-6 rounded-2xl shadow-sm border h-fit">
+            <h3 class="text-lg font-black text-gray-800 uppercase mb-4 italic border-b pb-2">Nuevo Usuario</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Usuario</label>
+                    <input type="text" id="new-user-name" class="w-full p-3 bg-gray-50 border rounded-xl font-bold uppercase text-sm outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Contraseña</label>
+                    <input type="text" id="new-user-pass" class="w-full p-3 bg-gray-50 border rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Rol</label>
+                    <select id="new-user-role" class="w-full p-3 bg-white border rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-emerald-500">
+                        <option value="ADMIN">ADMINISTRADOR</option>
+                        <option value="OPERARIO">OPERARIO</option>
+                    </select>
+                </div>
+                <button onclick="createNewUser()" class="w-full py-3 bg-purple-600 text-white font-black rounded-xl shadow hover:bg-purple-700 transition-all">CREAR USUARIO</button>
             </div>
         </div>
-    </div>
-
-    <!-- PANTALLA DE LOGIN -->
-    <div id="login-screen" class="fixed inset-0 z-[3000] bg-gray-100 hidden flex items-center justify-center p-4">
-        <div class="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-sm text-center">
-            <div class="text-5xl mb-6">🌱</div>
-            <h1 class="text-2xl font-black text-emerald-900 uppercase mb-8">AGROCAMACHO</h1>
-            <div class="space-y-4">
-                <input type="text" id="login-user" placeholder="Usuario" class="w-full p-4 bg-gray-50 rounded-xl outline-none font-bold uppercase">
-                <input type="password" id="login-pass" placeholder="Contraseña" class="w-full p-4 bg-gray-50 rounded-xl outline-none font-bold">
-                <button onclick="loginUser()" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase shadow-lg hover:bg-emerald-700">INGRESAR</button>
+        <!-- Lista Usuarios -->
+        <div class="md:w-2/3 bg-white rounded-2xl shadow-sm border overflow-hidden">
+            <div class="p-4 bg-gray-50 border-b">
+                <h3 class="font-black text-gray-800 uppercase text-sm">Usuarios Registrados</h3>
             </div>
-        </div>
-    </div>
-
-    <!-- APP PRINCIPAL -->
-    <nav class="bg-emerald-800 text-white p-4 shadow-lg sticky top-0 z-50">
-        <div class="container mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black tracking-tighter">AGROCAMACHO <span class="text-emerald-300 text-sm normal-case">v11.1</span></h1>
-                <p class="text-[10px] text-emerald-200 uppercase font-bold tracking-widest">Sistema de Control</p>
-            </div>
-            <div class="flex items-center gap-4">
-                <div class="text-right hidden sm:block">
-                    <p id="user-display-name" class="text-xs font-bold uppercase leading-none">Usuario</p>
-                    <p id="user-display-rol" class="text-[9px] text-emerald-300 uppercase">Rol</p>
-                </div>
-                <button onclick="logoutUser()" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-3 py-2 rounded-lg uppercase shadow transition-all">SALIR</button>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container mx-auto p-4 md:p-6">
-        <!-- NAVEGACIÓN (TABS) -->
-        <div class="flex border-b mb-6 bg-white rounded-t-xl px-4 shadow-sm overflow-x-auto">
-            <button onclick="showSection('inventario')" id="tab-inventario" class="tab-btn active px-6 py-4 text-sm uppercase whitespace-nowrap">Inventario</button>
-            <button onclick="showSection('periodos')" id="tab-periodos" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-blue-600">Ventas y Turnos ⏱️</button>
-            <!-- SOLO ADMIN: MAESTRO -->
-            <button onclick="showSection('editar')" id="tab-editar" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-emerald-700 hidden">Maestro 🛠️</button>
-            <!-- SOLO ADMIN: AJUSTES (SOLO USUARIOS AHORA) -->
-            <button onclick="showSection('ajustes')" id="tab-ajustes" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-purple-700 hidden">Usuarios 👥</button>
-            <!-- SOLO ADMIN: AUDITORÍA -->
-            <button onclick="showSection('historial')" id="tab-historial" class="tab-btn px-6 py-4 text-sm uppercase whitespace-nowrap font-bold text-red-600 hidden">Auditoría 🚩</button>
-        </div>
-
-        <!-- SECCIÓN AJUSTES (SOLO GESTIÓN DE USUARIOS) -->
-        <div id="section-ajustes" class="section-content hidden">
-            <div class="max-w-4xl mx-auto space-y-6">
-                <div class="bg-white p-8 rounded-[2rem] shadow-xl border">
-                    <h2 class="text-xl font-black text-blue-600 mb-6 uppercase flex items-center gap-2">👥 Gestión de Usuarios</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Lista -->
-                        <div class="md:col-span-2 space-y-2 max-h-[60vh] overflow-y-auto">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-gray-50 text-xs uppercase text-gray-500">
-                                    <tr><th class="p-3">Usuario</th><th class="p-3">Rol</th><th class="p-3 text-right">Acción</th></tr>
-                                </thead>
-                                <tbody id="users-list-body" class="divide-y divide-gray-100"></tbody>
-                            </table>
-                        </div>
-                        <!-- Crear -->
-                        <div class="bg-gray-50 p-6 rounded-2xl">
-                            <h3 class="font-bold text-gray-700 mb-4 uppercase text-sm">Nuevo Usuario</h3>
-                            <div class="space-y-3">
-                                <input type="text" id="new-user-name" placeholder="Nombre" class="w-full p-3 border rounded-xl text-xs font-bold uppercase">
-                                <select id="new-user-role" class="w-full p-3 border rounded-xl text-xs font-bold uppercase">
-                                    <option value="ADMIN">ADMINISTRADOR</option>
-                                    <option value="OPERARIO">OPERARIO</option>
-                                </select>
-                                <input type="password" id="new-user-pass" placeholder="Contraseña" class="w-full p-3 border rounded-xl text-xs font-bold">
-                                <button onclick="createUser()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black uppercase text-xs">CREAR USUARIO</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECCIÓN PERIODOS -->
-        <div id="section-periodos" class="section-content hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div class="lg:col-span-3 space-y-4">
-                    <div class="flex justify-between items-center px-2">
-                        <h3 class="text-[10px] font-black text-gray-400 uppercase">Historial de Turnos</h3>
-                        <button id="btn-create-period" onclick="resetToCreation()" title="Abrir Nuevo Turno" class="btn-new-float w-8 h-8 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all font-black text-lg hidden">+</button>
-                    </div>
-                    <div id="period-list-container" class="space-y-3 max-h-[70vh] overflow-y-auto scrollbar-hide pr-2"></div>
-                </div>
-
-                <div class="lg:col-span-9 space-y-6">
-                    <div id="active-period-panel" class="hidden bg-white p-6 rounded-[2.5rem] shadow-xl border-2 border-emerald-500">
-                        <div class="flex justify-between items-start mb-6">
-                            <div>
-                                <h2 id="current-period-title" class="text-2xl font-black text-emerald-900 uppercase italic"></h2>
-                                <p id="current-period-date" class="text-[10px] font-bold text-gray-400 uppercase"></p>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="btn-export-pdf" onclick="exportCategorizedPDF()" class="bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all">REPORTE PDF 📄</button>
-                                <!-- SOLO ADMIN PUEDE CERRAR -->
-                                <button id="btn-close-period" onclick="closeCurrentPeriod()" class="bg-red-50 text-red-600 px-6 py-2 rounded-full text-[10px] font-black hover:bg-red-600 hover:text-white transition-all hidden">CERRAR TURNO 🔒</button>
-                            </div>
-                        </div>
-
-                        <div id="pos-controls" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                            <div class="space-y-4">
-                                <input type="text" id="period-search" onkeyup="updatePeriodProductList()" placeholder="Buscar producto..." class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-emerald-500">
-                                <div id="tagContainerSales" class="flex gap-2 overflow-x-auto scrollbar-hide pb-2"></div>
-                                <select id="period-product-select" size="6" class="w-full rounded-2xl border-2 border-gray-100 p-2 text-sm font-bold outline-none focus:border-emerald-500"></select>
-                            </div>
-                            <div class="bg-emerald-50 p-6 rounded-[2rem] flex flex-col justify-between">
-                                <div class="space-y-4">
-                                    <select id="period-type" class="w-full p-4 rounded-xl font-black text-sm bg-white border-none shadow-sm">
-                                        <option value="VENTA">🛒 Venta</option>
-                                        <option value="ENTRADA">📦 Entrada</option>
-                                    </select>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <input type="number" id="period-qty" value="1" class="w-full p-4 rounded-xl text-2xl font-black text-center border-none shadow-sm">
-                                        <button onclick="addMovement()" class="w-full bg-emerald-600 text-white font-black rounded-xl shadow-lg uppercase text-xs">Registrar</button>
-                                    </div>
-                                </div>
-                                <div class="mt-6 pt-6 border-t border-emerald-200 flex justify-between items-center">
-                                    <span class="text-xs font-black uppercase text-emerald-800">Total Turno</span>
-                                    <span id="period-total-sales" class="text-3xl font-black text-emerald-900">$0</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-gray-50 rounded-3xl p-4 overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead class="text-[9px] uppercase font-black text-gray-400">
-                                    <tr><th class="p-3">Tipo</th><th class="p-3">Producto</th><th class="text-center p-3">Cant.</th><th class="text-right p-3">Monto</th><th class="text-center p-3">Por</th><th class="text-center p-3">X</th></tr>
-                                </thead>
-                                <tbody id="summary-items-table" class="text-xs font-bold divide-y divide-gray-200"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div id="period-creation-panel" class="bg-white p-16 rounded-[3rem] shadow-lg border text-center">
-                        <div class="text-6xl mb-6">📋</div>
-                        <h2 class="text-2xl font-black text-emerald-950 uppercase italic mb-8">Gestión de Turnos</h2>
-                        <div class="max-w-xs mx-auto space-y-4">
-                            <input type="text" id="period-name-input" placeholder="Nombre (Ej: Turno Tarde)" class="w-full p-5 border-2 rounded-2xl font-bold text-center uppercase outline-none focus:border-emerald-500">
-                            <button id="btn-open-period-init" onclick="createPeriod()" class="w-full bg-emerald-900 text-white font-black py-5 rounded-2xl shadow-2xl uppercase hover:bg-black transition-all hidden">Abrir Nuevo Turno</button>
-                            <p id="msg-no-permission" class="text-red-500 font-bold hidden">Solo el Admin puede abrir turnos.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECCIÓN INVENTARIO -->
-        <div id="section-inventario" class="section-content">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                <button id="btn-export-inv" onclick="exportInventoryPDF()" class="bg-white border-2 border-red-500 text-red-600 px-6 py-2 rounded-xl font-bold shadow hover:bg-red-50 w-full md:w-auto flex items-center justify-center gap-2 hidden">
-                    <span>📄</span> EXPORTAR PDF
-                </button>
-                <button id="btn-add-prod" onclick="openModal('modalProducto')" class="bg-emerald-600 text-white px-8 py-2.5 rounded-xl font-bold shadow-lg hover:bg-emerald-700 w-full md:w-auto hidden">
-                    + NUEVO PRODUCTO
-                </button>
-                <div id="msg-operator-inv" class="text-gray-400 text-sm italic text-center w-full hidden">Modo Solo Lectura - Operario</div>
-            </div>
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 text-center"><h3 class="text-gray-400 text-[10px] font-black uppercase">Productos</h3><p id="stat-total" class="text-2xl font-black">0</p></div>
-                <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-500 text-center"><h3 class="text-gray-400 text-[10px] font-black uppercase">Stock Bajo</h3><p id="stat-low" class="text-2xl font-black text-amber-600">0</p></div>
-                <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-red-500 text-center"><h3 class="text-gray-400 text-[10px] font-black uppercase">Agotados</h3><p id="stat-out" class="text-2xl font-black text-red-600">0</p></div>
-                <div id="card-stock-val" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 text-center hidden"><h3 class="text-gray-400 text-[10px] font-black uppercase">Valor Stock</h3><p id="stat-value" class="text-2xl font-black">$0</p></div>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-sm border mb-6">
-                <input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Filtrar inventario..." class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 mb-4">
-                <div id="tagContainer" class="flex flex-wrap gap-2"></div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
-                <table class="w-full text-left">
-                    <thead class="bg-gray-50 text-[10px] uppercase text-gray-500 border-b">
-                        <tr><th class="p-4">Producto</th><th class="p-4">Categoría</th><th id="th-costo" class="p-4 text-right hidden">Costo</th><th class="p-4 text-right">Venta</th><th class="p-4 text-center">Stock</th></tr>
-                    </thead>
-                    <tbody id="inventoryBody" class="divide-y divide-gray-100 italic text-sm"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- SECCIÓN MAESTRO (SOLO ADMIN) -->
-        <div id="section-editar" class="section-content hidden">
-            <div class="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border">
-                <h2 class="text-2xl font-black text-emerald-800 mb-6 italic uppercase">Gestión Maestro</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="md:col-span-1">
-                        <input type="text" id="editSearchInput" onkeyup="liveSearchEdit()" placeholder="Buscar..." class="w-full p-3 border rounded-t-xl mb-0 text-sm outline-none focus:ring-2 focus:ring-emerald-300">
-                        <select id="edit-select" size="10" onchange="loadProductToEdit()" class="w-full p-2 border rounded-b-xl bg-white text-xs font-bold h-64 overflow-y-auto"></select>
-                    </div>
-                    <div class="md:col-span-2 space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Nombre</label><input type="text" id="edit-nombre" class="w-full p-3 border rounded-xl font-bold uppercase outline-none"></div>
-                            <div><label class="text-[10px] font-bold text-gray-400 uppercase">Stock</label><input type="number" id="edit-stock" class="w-full p-3 border rounded-xl font-black"></div>
-                            <div><label class="text-[10px] font-bold text-gray-400 uppercase">Categoría</label><select id="edit-categoria" class="w-full p-3 border rounded-xl font-bold"></select></div>
-                            <div><label class="text-[10px] font-bold text-gray-400 uppercase">Costo</label><input type="number" id="edit-costo" class="w-full p-3 border rounded-xl text-red-600 font-black"></div>
-                            <div><label class="text-[10px] font-bold text-gray-400 uppercase">Venta</label><input type="number" id="edit-venta" class="w-full p-3 border rounded-xl text-emerald-600 font-black"></div>
-                        </div>
-                        <div class="flex gap-4 pt-4">
-                            <button onclick="saveChanges()" class="flex-1 bg-emerald-600 text-white font-black py-4 rounded-xl shadow-lg uppercase hover:bg-emerald-700">Guardar</button>
-                            <button onclick="deleteProduct()" class="bg-red-100 text-red-600 font-bold px-6 rounded-xl uppercase text-xs hover:bg-red-200">Eliminar</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECCIÓN HISTORIAL (ESTÉTICA MEJORADA) -->
-        <div id="section-historial" class="section-content hidden">
-            <div class="bg-white rounded-[2.5rem] shadow-lg border overflow-hidden">
-                <div class="bg-gray-900 p-6 border-b border-gray-800">
-                    <h2 class="text-2xl font-black text-white uppercase tracking-wider flex items-center gap-3">
-                        <span class="text-emerald-400">📡</span> Registro de Actividad
-                    </h2>
-                    <p class="text-gray-400 text-xs mt-1 uppercase font-bold tracking-widest">Auditoría de cambios en tiempo real</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs font-mono">
-                        <thead class="bg-gray-50 text-[10px] uppercase text-gray-500 font-black border-b">
-                            <tr>
-                                <th class="p-5 w-48">Fecha / Hora</th>
-                                <th class="p-5">Producto / Ref</th>
-                                <th class="p-5 w-32">Acción</th>
-                                <th class="p-5 w-32">Estado Anterior</th>
-                                <th class="p-5 w-32">Estado Nuevo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyBody" class="divide-y divide-gray-100 bg-white"></tbody>
-                    </table>
-                </div>
-                <div class="p-4 bg-gray-50 text-center border-t">
-                    <p class="text-[10px] text-gray-400 uppercase font-bold">Últimos 100 registros</p>
-                </div>
-            </div>
+            <table class="w-full text-left">
+                <thead class="text-[10px] uppercase text-gray-400 bg-gray-50">
+                    <tr>
+                        <th class="p-4">Usuario</th>
+                        <th class="p-4">Rol</th>
+                        <th class="p-4 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="users-list-body" class="divide-y divide-gray-100 text-sm font-bold text-gray-700">
+                    <!-- JS -->
+                </tbody>
+            </table>
         </div>
     </div>
+</div>
 
-    <!-- MODAL NUEVO PRODUCTO -->
-    <div id="modalProducto" class="modal opacity-0 pointer-events-none">
-        <div class="modal-overlay absolute w-full h-full bg-black/50" onclick="closeModal('modalProducto')"></div>
-        <div class="bg-white w-full max-w-lg p-8 rounded-[32px] shadow-2xl relative z-10 m-4 max-h-[90vh] overflow-y-auto">
-            <h2 class="text-2xl font-black text-emerald-800 mb-6 italic uppercase">Nuevo Producto</h2>
-            <div class="space-y-4">
-                <input type="text" id="new-nombre" placeholder="Nombre Comercial" class="w-full p-3 border-2 rounded-xl font-bold uppercase outline-none">
-                <div class="grid grid-cols-2 gap-4"><input type="number" id="new-stock" placeholder="Stock" class="p-3 border rounded-xl"><input type="text" id="new-imagen" placeholder="URL Imagen" class="p-3 border rounded-xl"><input type="number" id="new-costo" placeholder="Costo" class="p-3 border rounded-xl"><input type="number" id="new-venta" placeholder="Venta" class="p-3 border rounded-xl"></div>
-                <div class="flex gap-2"><select id="new-categoria" class="flex-1 p-3 border rounded-xl font-bold"></select><button onclick="openModal('modalTag')" class="bg-blue-600 text-white px-4 rounded-xl font-bold">+</button></div>
-                <button onclick="addProduct()" class="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase mt-4">Guardar</button>
-            </div>
+<!-- ========================================== -->
+<!-- SECCIÓN PERIODOS (DISEÑO V10 INTEGRADO) -->
+<!-- ========================================== -->
+<div id="section-periodos" class="section-content hidden">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<div class="lg:col-span-3 space-y-4">
+<div class="flex justify-between items-center px-2">
+<h3 class="text-[10px] font-black text-gray-400 uppercase">Historial de Turnos</h3>
+<button onclick="resetToCreation()" title="Abrir Nuevo Turno" class="btn-new-float w-8 h-8 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all font-black text-lg">+</button>
+</div>
+<div id="period-list-container" class="space-y-3 max-h-[70vh] overflow-y-auto scrollbar-hide pr-2"></div>
+</div>
+
+<div class="lg:col-span-9 space-y-6">
+
+<!-- PANEL: TURNO ACTIVO -->
+<div id="active-period-panel" class="hidden bg-white p-6 rounded-[2.5rem] shadow-xl border-2 border-emerald-500">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h2 id="current-period-title" class="text-2xl font-black text-emerald-900 uppercase italic"></h2>
+<p id="current-period-date" class="text-[10px] font-bold text-gray-400 uppercase"></p>
+</div>
+<div class="flex gap-2">
+<button onclick="exportCategorizedPDF()" class="bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all">REPORTE VENTAS PDF 📄</button>
+<button id="btn-close-period" onclick="closeCurrentPeriod()" class="bg-red-50 text-red-600 px-6 py-2 rounded-full text-[10px] font-black hover:bg-red-600 hover:text-white transition-all">CERRAR TURNO 🔒</button>
+</div>
+</div>
+
+<div id="pos-controls" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+<div class="space-y-4">
+<input type="text" id="period-search" onkeyup="updatePeriodProductList()" placeholder="Buscar producto..." class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-emerald-500">
+<div id="tagContainerSales" class="flex gap-2 overflow-x-auto scrollbar-hide pb-2"></div>
+<select id="period-product-select" size="6" class="w-full rounded-2xl border-2 border-gray-100 p-2 text-sm font-bold outline-none focus:border-emerald-500"></select>
+</div>
+<div class="bg-emerald-50 p-6 rounded-[2rem] flex flex-col justify-between">
+<div class="space-y-4">
+<select id="period-type" class="w-full p-4 rounded-xl font-black text-sm bg-white border-none shadow-sm">
+<option value="VENTA">🛒 Venta</option>
+<option value="ENTRADA">📦 Entrada</option>
+</select>
+<div class="grid grid-cols-2 gap-4">
+<input type="number" id="period-qty" value="1" class="w-full p-4 rounded-xl text-2xl font-black text-center border-none shadow-sm">
+<button onclick="addMovement()" class="w-full bg-emerald-600 text-white font-black rounded-xl shadow-lg uppercase text-xs">Registrar</button>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-emerald-200 flex justify-between items-center">
+<span class="text-xs font-black uppercase text-emerald-800">Total Turno</span>
+<span id="period-total-sales" class="text-3xl font-black text-emerald-900">$0</span>
+</div>
+</div>
+</div>
+
+<div class="bg-gray-50 rounded-3xl p-4 overflow-x-auto">
+<table class="w-full text-left">
+<thead class="text-[9px] uppercase font-black text-gray-400">
+<tr><th class="p-3">Tipo</th><th class="p-3">Producto</th><th class="text-center p-3">Cant.</th><th class="text-right p-3">Monto</th><th class="text-center p-3">X</th></tr>
+</thead>
+<tbody id="summary-items-table" class="text-xs font-bold divide-y divide-gray-200"></tbody>
+</table>
+</div>
+</div>
+
+<!-- PANEL: CREACIÓN DE NUEVO TURNO -->
+<div id="period-creation-panel" class="bg-white p-16 rounded-[3rem] shadow-lg border text-center">
+<div class="text-6xl mb-6">📋</div>
+<h2 class="text-2xl font-black text-emerald-950 uppercase italic mb-8">Gestión de Turnos</h2>
+<div class="max-w-xs mx-auto space-y-4">
+<input type="text" id="period-name-input" placeholder="Nombre (Ej: Turno Tarde)" class="w-full p-5 border-2 rounded-2xl font-bold text-center uppercase outline-none focus:border-emerald-500">
+<button onclick="createPeriod()" class="w-full bg-emerald-900 text-white font-black py-5 rounded-2xl shadow-2xl uppercase hover:bg-black transition-all">Abrir Nuevo Turno</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ========================================== -->
+<!-- SECCIÓN INVENTARIO (SIN CAMBIOS) -->
+<!-- ========================================== -->
+<div id="section-inventario" class="section-content">
+<div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+<button onclick="exportInventoryPDF()" class="bg-white border-2 border-red-500 text-red-600 px-6 py-2 rounded-xl font-bold shadow hover:bg-red-50 w-full md:w-auto flex items-center justify-center gap-2">
+<span>📄</span> EXPORTAR PDF INVENTARIO
+</button>
+<button onclick="openModal('modalProducto')" class="admin-only bg-emerald-600 text-white px-8 py-2.5 rounded-xl font-bold shadow-lg hover:bg-emerald-700 w-full md:w-auto">
++ NUEVO PRODUCTO
+</button>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 text-center"><h3 class="text-gray-400 text-[10px] font-black uppercase">Productos</h3><p id="stat-total" class="text-2xl font-black">0</p></div>
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-500 text-center"><h3 class="text-gray-400 text-[10px] font-black uppercase">Stock Bajo</h3><p id="stat-low" class="text-2xl font-black text-amber-600">0</p></div>
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-red-500 text-center"><h3 class="text-gray-400 text-[10px] font-black uppercase">Agotados</h3><p id="stat-out" class="text-2xl font-black text-red-600">0</p></div>
+<div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 text-center"><h3 class="text-gray-400 text-[10px] font-black uppercase">Valor Stock</h3><p id="stat-value" class="text-2xl font-black">$0</p></div>
+</div>
+
+<div class="bg-white p-6 rounded-2xl shadow-sm border mb-6">
+<input type="text" id="searchInput" placeholder="Filtrar inventario..." class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 mb-4">
+<div id="tagContainer" class="flex flex-wrap gap-2"></div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+<table id="inventory-table" class="w-full text-left">
+<thead class="bg-gray-50 text-[10px] uppercase text-gray-500 border-b">
+<tr><th class="p-4">Producto</th><th class="p-4">Categoría</th><th class="p-4 text-right">Costo</th><th class="p-4 text-right">Venta</th><th class="p-4 text-center">Stock</th></tr>
+</thead>
+<tbody id="inventoryBody" class="divide-y divide-gray-100 italic text-sm"></tbody>
+</table>
+</div>
+</div>
+
+<!-- ========================================== -->
+<!-- SECCIÓN MAESTRO (SIN CAMBIOS) -->
+<!-- ========================================== -->
+<div id="section-editar" class="section-content hidden admin-only">
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border">
+<h2 class="text-2xl font-black text-emerald-800 mb-6 italic uppercase">Gestión Maestro</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-1">
+<input type="text" id="editSearchInput" onkeyup="liveSearchEdit()" placeholder="Buscar..." class="w-full p-3 border rounded-t-xl mb-0 text-sm outline-none focus:ring-2 focus:ring-emerald-300">
+<select id="edit-select" size="10" onchange="loadProductToEdit()" class="w-full p-2 border rounded-b-xl bg-white text-xs font-bold h-64 overflow-y-auto"></select>
+</div>
+<div class="md:col-span-2 space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<div class="col-span-2">
+<label class="text-[10px] font-bold text-gray-400 uppercase">Nombre</label>
+<input type="text" id="edit-nombre" class="w-full p-3 border rounded-xl font-bold uppercase outline-none focus:ring-2 focus:ring-emerald-500">
+</div>
+<div><label class="text-[10px] font-bold text-gray-400 uppercase">Stock Actual</label><input type="number" id="edit-stock" class="w-full p-3 border rounded-xl font-black"></div>
+<div><label class="text-[10px] font-bold text-gray-400 uppercase">Categoría</label><select id="edit-categoria" class="w-full p-3 border rounded-xl font-bold"></select></div>
+<div><label class="text-[10px] font-bold text-gray-400 uppercase">Costo</label><input type="number" id="edit-costo" class="w-full p-3 border rounded-xl text-red-600 font-bold"></div>
+<div><label class="text-[10px] font-bold text-gray-400 uppercase">Venta</label><input type="number" id="edit-venta" class="w-full p-3 border rounded-xl text-emerald-600 font-bold"></div>
+</div>
+<div class="flex gap-4 pt-4">
+<button onclick="saveChanges()" class="flex-1 bg-emerald-600 text-white font-black py-4 rounded-xl shadow-lg uppercase hover:bg-emerald-700">Guardar Cambios</button>
+<button onclick="deleteProduct()" class="bg-red-100 text-red-600 font-bold px-6 rounded-xl uppercase text-xs hover:bg-red-200">Eliminar</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ========================================== -->
+<!-- SECCIÓN HISTORIAL (REDISEÑO MODERNO V10.1) -->
+<!-- ========================================== -->
+<div id="section-historial" class="section-content hidden admin-only">
+    <div class="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+        <div>
+            <h2 class="text-2xl font-black text-gray-800 italic uppercase tracking-tight">Registro de Auditoría</h2>
+            <p class="text-xs text-gray-500 font-bold uppercase mt-1">Trazabilidad de cambios en tiempo real</p>
+        </div>
+        <div class="text-right hidden md:block">
+            <span class="text-[10px] font-bold text-gray-400 uppercase block">Estado del Log</span>
+            <span class="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">MONITOREO ACTIVO</span>
         </div>
     </div>
-    <div id="modalTag" class="modal opacity-0 pointer-events-none" style="z-index: 1100;"><div class="modal-overlay absolute w-full h-full bg-black/60" onclick="closeModal('modalTag')"></div><div class="bg-white w-full max-w-xs p-6 rounded-3xl relative z-10 text-center shadow-2xl"><h2 class="text-xl font-black mb-4 uppercase">Nueva Categoría</h2><input type="text" id="new-tag-name" placeholder="Nombre" class="w-full p-3 border rounded-xl mb-4 font-bold text-center uppercase"><input type="color" id="new-tag-color" value="#10b981" class="w-full h-12 mb-4 rounded-xl cursor-pointer border-0"><button onclick="addTag()" class="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase hover:bg-blue-700">Crear</button></div></div>
 
-    <!-- LOGICA JAVASCRIPT -->
-    <script>
-        // CONFIGURACIÓN FIREBASE
-        const firebaseConfig = {
-            apiKey: "AIzaSyDqb4BuMMc33r9C6I-XVLfpgAJH52oeM5Y",
-            databaseURL: "https://agrocamacho-5d82f-default-rtdb.firebaseio.com/"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+    <div class="audit-table-container bg-white border border-gray-200">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                        <th class="p-4 pl-6 w-48">Fecha / Hora</th>
+                        <th class="p-4">Producto</th>
+                        <th class="p-4 w-48">Acción</th>
+                        <th class="p-4 w-32 text-right">Antes</th>
+                        <th class="p-4 w-32 text-right pr-6">Después</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody" class="text-sm font-medium text-gray-700 divide-y divide-gray-100">
+                </tbody>
+            </table>
+        </div>
 
-        // ESTADO GLOBAL
-        let database = { productos: {}, categorias: {}, periodos: {}, usuarios: {}, sistema: {} };
-        let currentUser = null; 
-        let activeTagId = null;
-        let activePeriodId = null;
-        let salesActiveTag = null;
+        <div id="history-empty-state" class="hidden p-12 text-center">
+            <div class="text-4xl mb-2 opacity-50">🕰️</div>
+            <p class="font-bold text-gray-400 uppercase">No hay registros de auditoría</p>
+        </div>
+    </div>
 
-        // ==========================================
-        // 1. INICIALIZACIÓN Y SEGURIDAD
-        // ==========================================
-        db.ref('/').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                database.productos = data.productos || {};
-                database.categorias = data.categorias || {};
-                database.periodos = data.periodos || {};
-                database.usuarios = data.usuarios || {};
-                database.sistema = data.sistema || {};
-                database.historial = data.historial || {}; // Asegurar carga de historial
+    <div class="flex justify-between items-center mt-4 px-2" id="pagination-controls">
+        <button id="btn-prev-page" onclick="changeHistoryPage(-1)" class="pagination-btn flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-emerald-600 shadow-sm transition-colors">
+            <span>←</span> Anterior
+        </button>
+        
+        <div class="text-center">
+            <span class="text-[10px] font-bold text-gray-400 uppercase block tracking-wider">Página</span>
+            <span id="page-indicator" class="text-sm font-black text-gray-800 font-mono">1 / 1</span>
+        </div>
 
-                // CHECKEO DE BLOQUEO REMOTO (CONSOLA FIREBASE)
-                const sys = database.sistema;
-                const lockScreen = document.getElementById('lock-screen');
-                const lockMsg = document.getElementById('lock-message');
-                
-                if (sys && sys.bloqueado === true) {
-                    lockScreen.classList.remove('hidden');
-                    lockMsg.innerText = sys.mensaje_mantenimiento || "Sistema bloqueado por el administrador.";
-                    return; 
-                } else {
-                    lockScreen.classList.add('hidden');
-                }
+        <button id="btn-next-page" onclick="changeHistoryPage(1)" class="pagination-btn flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-emerald-600 shadow-sm transition-colors">
+            Siguiente <span>→</span>
+        </button>
+    </div>
+</div>
 
-                // CHECKEO DE SESIÓN Y USUARIOS
-                const usersCount = Object.keys(database.usuarios).length;
-                if (usersCount === 0) {
-                    document.getElementById('loader').style.display = 'none';
-                    document.getElementById('setup-screen').classList.remove('hidden');
-                    return;
-                }
+</div> <!-- End Container -->
 
-                if (!currentUser) {
-                    document.getElementById('loader').style.display = 'none';
-                    document.getElementById('login-screen').classList.remove('hidden');
-                }
+<!-- MODAL NUEVO PRODUCTO -->
+<div id="modalProducto" class="modal opacity-0 pointer-events-none">
+<div class="modal-overlay absolute w-full h-full bg-black/50" onclick="closeModal('modalProducto')"></div>
+<div class="bg-white w-full max-w-lg p-8 rounded-[32px] shadow-2xl relative z-10 m-4 max-h-[90vh] overflow-y-auto">
+<h2 class="text-2xl font-black text-emerald-800 mb-6 italic uppercase">Nuevo Producto</h2>
+<div class="space-y-4">
+<input type="text" id="new-nombre" placeholder="Nombre Comercial" class="w-full p-3 border-2 rounded-xl font-bold uppercase outline-none focus:ring-2 focus:ring-emerald-500">
+<div class="grid grid-cols-2 gap-4">
+<input type="number" id="new-stock" placeholder="Stock Inicial" class="p-3 border rounded-xl">
+<input type="text" id="new-imagen" placeholder="URL Imagen (Opcional)" class="p-3 border rounded-xl">
+<input type="number" id="new-costo" placeholder="Costo Unitario" class="p-3 border rounded-xl">
+<input type="number" id="new-venta" placeholder="Precio Venta" class="p-3 border rounded-xl">
+</div>
+<div class="flex gap-2">
+<select id="new-categoria" class="flex-1 p-3 border rounded-xl font-bold"></select>
+<button onclick="openModal('modalTag')" class="bg-blue-600 text-white px-4 rounded-xl font-bold hover:bg-blue-700" title="Crear Nueva Categoría">+</button>
+</div>
+<button onclick="addProduct()" class="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase mt-4 hover:bg-emerald-700">Guardar en Base de Datos</button>
+</div>
+</div>
+</div>
 
-                // RENDERIZADO GENERAL
-                if (currentUser) {
-                    renderAll();
-                }
-            }
-        });
+<!-- MODAL NUEVA CATEGORÍA -->
+<div id="modalTag" class="modal opacity-0 pointer-events-none" style="z-index: 1100;">
+<div class="modal-overlay absolute w-full h-full bg-black/60" onclick="closeModal('modalTag')"></div>
+<div class="bg-white w-full max-w-xs p-6 rounded-3xl relative z-10 text-center shadow-2xl">
+<h2 class="text-xl font-black mb-4 uppercase text-gray-800">Nueva Categoría</h2>
+<input type="text" id="new-tag-name" placeholder="Nombre" class="w-full p-3 border rounded-xl mb-4 font-bold text-center uppercase">
+<input type="color" id="new-tag-color" value="#10b981" class="w-full h-12 mb-4 rounded-xl cursor-pointer border-0">
+<button onclick="addTag()" class="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase hover:bg-blue-700">Crear</button>
+</div>
+</div>
 
-        function createFirstAdmin() {
-            const nombre = document.getElementById('setup-name').value.toUpperCase().trim();
-            const pass = document.getElementById('setup-pass').value.trim();
-            if(!nombre || !pass) return alert("Complete todos los campos");
-            db.ref('usuarios').push({ nombre, rol: 'ADMIN', pass }).then(() => {
-                alert("Sistema inicializado. Inicie sesión.");
-                location.reload();
-            });
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- LOGICA JAVASCRIPT -->
+<script>
+// CONFIGURACIÓN FIREBASE
+const firebaseConfig = {
+apiKey: "AIzaSyDqb4BuMMc33r9C6I-XVLfpgAJH52oeM5Y",
+databaseURL: "https://agrocamacho-5d82f-default-rtdb.firebaseio.com/"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ESTADO GLOBAL
+let database = { productos: {}, categorias: {}, periodos: {}, usuarios: {} };
+let activeTagId = null;
+let activePeriodId = null;
+let salesActiveTag = null;
+let currentUser = null; 
+let historyPage = 1;
+const historyLimit = 10;
+
+// ==========================================
+// SISTEMA DE LOGIN & MANTENIMIENTO
+// ==========================================
+
+db.ref('sistema').on('value', (snapshot) => {
+    const sysData = snapshot.val();
+    const maintenanceScreen = document.getElementById('maintenance-screen');
+    const loginScreen = document.getElementById('login-screen');
+    const mainApp = document.getElementById('main-app');
+    const loader = document.getElementById('loader');
+
+    if(loader.style.display !== 'none') loader.style.display = 'none';
+
+    if (sysData && sysData.bloqueo === true) {
+        maintenanceScreen.classList.remove('hidden');
+        loginScreen.classList.add('hidden');
+        mainApp.classList.add('hidden');
+        
+        const msg = sysData.mensaje_mantenimiento || "El sistema se encuentra en mantenimiento.";
+        document.getElementById('maintenance-msg').innerText = msg;
+    } else {
+        maintenanceScreen.classList.add('hidden');
+        // Si hay usuario logueado, mostrar app, si no, login
+        if (currentUser) {
+            loginScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+        } else {
+            loginScreen.classList.remove('hidden');
+            mainApp.classList.add('hidden');
         }
+    }
+});
 
-        function loginUser() {
-            const u = document.getElementById('login-user').value.trim().toUpperCase();
-            const p = document.getElementById('login-pass').value.trim();
-            const userFound = Object.values(database.usuarios).find(user => user.nombre === u && user.pass === p);
-            if(userFound) {
-                currentUser = userFound;
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('user-display-name').innerText = currentUser.nombre;
-                document.getElementById('user-display-rol').innerText = currentUser.rol;
-                configureUIForRole();
-                renderAll();
-            } else {
-                alert("Credenciales incorrectas");
-            }
-        }
+db.ref('usuarios').on('value', (snapshot) => {
+    database.usuarios = snapshot.val() || {};
+    renderUsersList();
+});
 
-        function logoutUser() { currentUser = null; location.reload(); }
+function attemptLogin() {
+    const userIn = document.getElementById('login-user').value.trim().toUpperCase();
+    const passIn = document.getElementById('login-pass').value.trim();
+    const errorMsg = document.getElementById('login-error');
 
-        function configureUIForRole() {
-            const isAdmin = currentUser.rol === 'ADMIN';
-            const tabs = ['editar', 'historial', 'ajustes'];
-            tabs.forEach(id => document.getElementById(`tab-${id}`).classList.toggle('hidden', !isAdmin));
-            document.getElementById('btn-export-inv').classList.toggle('hidden', !isAdmin);
-            document.getElementById('btn-add-prod').classList.toggle('hidden', !isAdmin);
-            document.getElementById('card-stock-val').classList.toggle('hidden', !isAdmin);
-            document.getElementById('msg-operator-inv').classList.toggle('hidden', isAdmin);
-            document.getElementById('th-costo').classList.toggle('hidden', !isAdmin); 
-            document.getElementById('btn-create-period').classList.toggle('hidden', !isAdmin);
-            document.getElementById('btn-close-period').classList.toggle('hidden', !isAdmin);
-            document.getElementById('btn-open-period-init').classList.toggle('hidden', !isAdmin);
-            document.getElementById('msg-no-permission').classList.toggle('hidden', isAdmin);
-        }
+    const foundUserKey = Object.keys(database.usuarios).find(key => 
+        database.usuarios[key].username.toUpperCase() === userIn
+    );
 
-        // ==========================================
-        // 2. AJUSTES (SOLO USUARIOS)
-        // ==========================================
-        function createUser() {
-            const n = document.getElementById('new-user-name').value.toUpperCase();
-            const r = document.getElementById('new-user-role').value;
-            const p = document.getElementById('new-user-pass').value;
-            if(!n || !p) return alert("Llene nombre y contraseña");
-            db.ref('usuarios').push({ nombre: n, rol: r, pass }).then(() => {
-                document.getElementById('new-user-name').value = "";
-                document.getElementById('new-user-pass').value = "";
-                alert("Usuario creado");
-            });
-        }
-        function renderUsersList() {
-            const tbody = document.getElementById('users-list-body');
-            tbody.innerHTML = Object.values(database.usuarios).map(u => `
-                <tr>
-                    <td class="p-3 font-bold">${u.nombre}</td>
-                    <td class="p-3 text-xs"><span class="px-2 py-1 rounded ${u.rol==='ADMIN'?'bg-red-100 text-red-700':'bg-blue-100 text-blue-700'}">${u.rol}</span></td>
-                    <td class="p-3 text-right">${u.rol !== 'ADMIN' ? `<button onclick="deleteUser('${u.nombre}')" class="text-red-500 hover:text-red-700">🗑️</button>` : ''}</td>
-                </tr>
-            `).join('');
-        }
-        function deleteUser(name) {
-            if(confirm(`¿Borrar usuario ${name}?`)) {
-                const key = Object.keys(database.usuarios).find(k => database.usuarios[k].nombre === name);
-                if(key) db.ref('usuarios/'+key).remove();
-            }
-        }
-
-        // ==========================================
-        // 3. LÓGICA DE NEGOCIO
-        // ==========================================
-        function renderAll() { 
-            renderTags(); 
-            renderTagsSales(); 
-            renderTable(); 
-            populateCatSelects(); 
-            populateEditSelect(); 
-            renderHistory(); // Actualizar Historial
-            renderPeriodList(); 
-            updatePeriodProductList();
-            renderUsersList(); 
-            if(activePeriodId) renderPeriodMovements(); 
-            document.getElementById('loader').style.display = 'none';
-        }
-
-        function resetToCreation() {
-            activePeriodId = null;
-            document.getElementById('active-period-panel').classList.add('hidden');
-            document.getElementById('period-creation-panel').classList.remove('hidden');
-            renderPeriodList();
-        }
-
-        function createPeriod() {
-            if (currentUser.rol !== 'ADMIN') return;
-            const pAbierto = Object.values(database.periodos).find(p => p.estado === 'ABIERTO');
-            if(pAbierto) { alert(`Ya hay un turno abierto: ${pAbierto.nombre}.`); setPeriodActive(pAbierto.id, pAbierto.nombre); return; }
-            const nInput = document.getElementById('period-name-input');
-            const n = nInput.value.trim().toUpperCase();
-            if(!n) return alert("Escribe un nombre");
-            const newRef = db.ref('periodos').push();
-            const id = newRef.key;
-            newRef.set({ id, nombre: n, fecha: new Date().toLocaleString(), estado: 'ABIERTO', movimientos: {} }).then(() => { nInput.value = ""; setPeriodActive(id, n); });
-        }
-
-        function setPeriodActive(id, name) {
-            activePeriodId = id;
-            const p = database.periodos[id];
-            if(!p) return;
-            document.getElementById('active-period-panel').classList.remove('hidden');
-            document.getElementById('period-creation-panel').classList.add('hidden');
-            document.getElementById('current-period-title').innerText = "📍 " + name;
-            document.getElementById('current-period-date').innerText = p.fecha;
-            const isAbierto = p.estado === 'ABIERTO';
-            document.getElementById('pos-controls').style.display = isAbierto ? 'grid' : 'none';
-            renderPeriodMovements();
-            renderPeriodList();
-        }
-
-        function closeCurrentPeriod() {
-            if(confirm("¿Cerrar turno definitivamente?")) {
-                db.ref(`periodos/${activePeriodId}/estado`).set('CERRADO').then(() => resetToCreation());
-            }
-        }
-
-        function updatePeriodProductList() {
-            const f = document.getElementById('period-search').value.toLowerCase();
-            document.getElementById('period-product-select').innerHTML = Object.values(database.productos).sort((a,b)=>a.nombre.localeCompare(b.nombre)).filter(p => p.nombre.toLowerCase().includes(f) && (!salesActiveTag || p.tag_id === salesActiveTag)).map(p => `<option value="${p.id}" class="p-3 text-[10px] font-black uppercase">${p.nombre} — [${p.stock_actual}]</option>`).join('');
-        }
-
-        function renderTagsSales() {
-            const container = document.getElementById('tagContainerSales');
-            let html = `<button onclick="filterSalesByTag(null)" class="px-3 py-1.5 rounded-xl text-[8px] font-black border ${!salesActiveTag ? 'bg-black text-white' : 'bg-white text-gray-400'}">TODOS</button>`;
-            Object.values(database.categorias).forEach(c => { const act = salesActiveTag === c.id; html += `<button onclick="filterSalesByTag('${c.id}')" class="px-3 py-1.5 rounded-xl text-[8px] font-black border" style="border-color:${c.color}; background:${act?c.color:'transparent'}; color:${act?'white':c.color}">${c.nombre}</button>`; });
-            container.innerHTML = html;
-        }
-        function filterSalesByTag(id) { salesActiveTag = id; renderTagsSales(); updatePeriodProductList(); }
-
-        function addMovement() {
-            const pid = document.getElementById('period-product-select').value;
-            const qty = parseInt(document.getElementById('period-qty').value);
-            const type = document.getElementById('period-type').value;
-            if(!pid || qty <= 0) return alert("Selecciona producto y cantidad válida");
-            const prod = database.productos[pid];
-            if(type === 'VENTA' && qty > prod.stock_actual) return alert("Stock insuficiente");
-            const mid = 'M' + Date.now();
-            const monto = (prod.precio_venta || 0) * qty;
-            db.ref(`periodos/${activePeriodId}/movimientos/${mid}`).set({
-                id: mid, productoId: pid, nombre: prod.nombre, cantidad: qty, precio: prod.precio_venta || 0, monto, tipo: type, hora: new Date().toLocaleTimeString(), usuario: currentUser.nombre 
-            }).then(() => {
-                const newStock = type === 'VENTA' ? (prod.stock_actual - qty) : (prod.stock_actual + qty);
-                db.ref(`productos/${pid}/stock_actual`).set(newStock);
-                document.getElementById('period-qty').value = "1";
-            });
-        }
-
-        function renderPeriodMovements() {
-            const p = database.periodos[activePeriodId];
-            const body = document.getElementById('summary-items-table');
-            let totalVentas = 0; body.innerHTML = '';
-            if(p?.movimientos) {
-                Object.values(p.movimientos).reverse().forEach(v => {
-                    const esVenta = v.tipo === 'VENTA' || !v.tipo;
-                    if(esVenta) totalVentas += (v.monto || (v.cantidad * (v.precio || 0)));
-                    const isOwnerOrAdmin = currentUser.rol === 'ADMIN' || currentUser.nombre === v.usuario;
-                    const canEdit = p.estado === 'ABIERTO' && isOwnerOrAdmin;
-
-                    body.innerHTML += `<tr class="hover:bg-white transition-colors">
-                        <td class="p-3 text-[8px] font-black ${esVenta?'text-red-500':'text-blue-500'}">${v.tipo||'VENTA'}</td>
-                        <td class="p-3 uppercase font-black truncate max-w-[120px]" title="${v.nombre}">${v.nombre}</td>
-                        <td class="p-3 text-center">
-                            <span onclick="${canEdit ? `editMovementQty('${v.id}', '${v.productoId}', ${v.cantidad}, '${v.tipo||'VENTA'}')` : ''}" class="${canEdit ? 'cursor-pointer hover:bg-emerald-100 px-2 py-1 rounded-lg border border-dashed border-emerald-300 transition-all' : ''}">${v.cantidad}</span>
-                        </td>
-                        <td class="p-3 text-right font-black font-mono">$${(v.monto || (v.cantidad * (v.precio || 0))).toLocaleString()}</td>
-                        <td class="p-3 text-[8px] text-gray-400 text-center uppercase">${v.usuario || 'SISTEMA'}</td>
-                        <td class="p-3 text-center">${canEdit ? `<button onclick="removeMovement('${v.id}','${v.productoId}',${v.cantidad},'${v.tipo||'VENTA'}')" class="text-red-300 hover:text-red-600 transition-colors">✕</button>` : ''}</td>
-                    </tr>`;
-                });
-            }
-            document.getElementById('period-total-sales').innerText = '$' + totalVentas.toLocaleString();
-        }
-
-        function editMovementQty(mid, pid, oldQty, type) {
-            const p = database.periodos[activePeriodId];
-            const v = p.movimientos[mid];
-            if(currentUser.rol !== 'ADMIN' && currentUser.nombre !== v.usuario) return alert("No puedes editar movimientos de otros operarios.");
-            const newQty = prompt("Nueva cantidad:", oldQty);
-            if (newQty === null || newQty === "" || isNaN(newQty) || parseInt(newQty) < 0) return;
-            const q = parseInt(newQty);
-            const prod = database.productos[pid];
-            const diff = q - oldQty;
-            if (type === 'VENTA' && diff > prod.stock_actual) return alert("Stock insuficiente");
-            const nuevoMonto = (prod.precio_venta || 0) * q;
-            db.ref(`periodos/${activePeriodId}/movimientos/${mid}`).update({ cantidad: q, monto: nuevoMonto }).then(() => {
-                const s = (type === 'VENTA') ? (prod.stock_actual + oldQty - q) : (prod.stock_actual - oldQty + q);
-                db.ref(`productos/${pid}/stock_actual`).set(s);
-            });
-        }
-
-        function removeMovement(mid, pid, qty, type) {
-             const p = database.periodos[activePeriodId];
-            const v = p.movimientos[mid];
-            if(currentUser.rol !== 'ADMIN' && currentUser.nombre !== v.usuario) return alert("No puedes borrar movimientos de otros operarios.");
-            if(!confirm("¿Eliminar este movimiento y devolver el stock?")) return;
-            db.ref(`periodos/${activePeriodId}/movimientos/${mid}`).remove().then(() => {
-                const p = database.productos[pid];
-                if(p) {
-                    const restoredStock = type==='VENTA' ? (p.stock_actual + qty) : (p.stock_actual - qty);
-                    db.ref(`productos/${pid}/stock_actual`).set(restoredStock);
-                }
-            });
-        }
-
-        function renderPeriodList() {
-            document.getElementById('period-list-container').innerHTML = Object.values(database.periodos).reverse().map(p => `
-                <div class="period-card bg-white p-4 rounded-2xl border shadow-sm cursor-pointer ${activePeriodId === p.id ? 'border-emerald-500 ring-2 ring-emerald-100' : 'hover:border-gray-300'}" onclick="setPeriodActive('${p.id}','${p.nombre}')">
-                    <p class="text-[8px] font-black text-gray-400 uppercase">${p.fecha}</p>
-                    <h4 class="text-xs font-black text-emerald-950 uppercase mb-3 leading-tight">${p.nombre}</h4>
-                    <button class="w-full py-2 rounded-xl text-[9px] font-black uppercase transition-all pointer-events-none ${p.estado==='ABIERTO' ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-100 text-gray-500'}">
-                        ${p.estado==='ABIERTO' ? 'Activo' : 'Cerrado'}
-                    </button>
-                </div>`).join('');
-        }
-
-        function exportCategorizedPDF() {
-            if(currentUser.rol !== 'ADMIN') return alert("Solo el administrador puede exportar reportes detallados.");
-            const p = database.periodos[activePeriodId];
-            if (!p || !p.movimientos) return alert("No hay movimientos.");
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.setFontSize(18); doc.setFont("helvetica", "bold");
-            doc.text("REPORTE DE VENTAS - AGROCAMACHO", 105, 15, { align: 'center' });
-            doc.setFontSize(10); doc.setFont("helvetica", "normal");
-            doc.text(`TURNO: ${p.nombre}`, 105, 22, { align: 'center' });
-            doc.text(`FECHA: ${p.fecha}`, 105, 27, { align: 'center' });
-            const agrupado = {};
-            let totalGeneralVentas = 0;
-            let totalGeneralCosto = 0;
-            let totalGanancia = 0;
-            Object.values(p.movimientos).forEach(v => {
-                const esVenta = v.tipo === 'VENTA' || !v.tipo;
-                if (esVenta) {
-                    totalGeneralVentas += (v.monto || (v.cantidad * v.precio));
-                    const productoInfo = database.productos[v.productoId];
-                    const costoUnitario = productoInfo ? (productoInfo.precio_unitario || 0) : 0;
-                    const costoTotal = v.cantidad * costoUnitario;
-                    const ganancia = (v.monto || (v.cantidad * v.precio)) - costoTotal;
-                    totalGeneralCosto += costoTotal;
-                    totalGanancia += ganancia;
-                    const categoriaNombre = (productoInfo && database.categorias[productoInfo.tag_id]) ? database.categorias[productoInfo.tag_id].nombre : "SIN CATEGORÍA";
-                    if (!agrupado[categoriaNombre]) agrupado[categoriaNombre] = [];
-                    agrupado[categoriaNombre].push([
-                        v.nombre.toUpperCase(), v.cantidad, `$${(v.precio || 0).toLocaleString()}`,
-                        `$${costoUnitario.toLocaleString()}`, `$${ganancia.toLocaleString()}`, `$${(v.monto || (v.cantidad * v.precio)).toLocaleString()}`
-                    ]);
-                }
-            });
-            let yPos = 35;
-            for (const [categoria, filas] of Object.entries(agrupado)) {
-                doc.setFontSize(11); doc.setFont("helvetica", "bold");
-                doc.text(`CATEGORÍA: ${categoria.toUpperCase()}`, 14, yPos);
-                doc.autoTable({
-                    startY: yPos + 2, head: [['PRODUCTO', 'CANT.', 'PRECIO', 'COSTO U.', 'GANANCIA', 'SUBTOTAL']],
-                    body: filas, theme: 'grid', headStyles: { fillColor: [5, 150, 105] },
-                    styles: { fontSize: 8, font: "helvetica" }, margin: { left: 14, right: 14 }
-                });
-                yPos = doc.lastAutoTable.finalY + 10;
-                if (yPos > 250) { doc.addPage(); yPos = 20; }
-            }
-            const finalY = yPos + 5;
-            doc.setFontSize(12); doc.setFont("helvetica", "bold");
-            doc.text(`VENTAS: $${totalGeneralVentas.toLocaleString()}`, 14, finalY);
-            doc.text(`COSTOS: $${totalGeneralCosto.toLocaleString()}`, 14, finalY + 7);
-            doc.text(`GANANCIA NETA: $${totalGanancia.toLocaleString()}`, 14, finalY + 14);
-            doc.save(`Reporte_Admin_${p.nombre.replace(/\s+/g, '_')}.pdf`);
-        }
-
-        // ==========================================
-        // 4. AUDITORÍA (ESTÉTICA MEJORADA)
-        // ==========================================
-        function renderHistory() {
-            const h = database.historial || {};
-            const historyBody = document.getElementById('historyBody');
-            
-            if (Object.keys(h).length === 0) {
-                historyBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-400 font-mono">No hay movimientos registrados en el historial.</td></tr>`;
-                return;
-            }
-
-            historyBody.innerHTML = Object.values(h).reverse().slice(0, 100).map(x => {
-                // Estilos dinámicos según la acción
-                let badgeClass = "bg-gray-100 text-gray-600";
-                if (x.campo.includes('CREACIÓN')) badgeClass = "bg-emerald-100 text-emerald-700";
-                else if (x.campo.includes('ELIMINADO')) badgeClass = "bg-red-100 text-red-700";
-                else if (x.campo.includes('COSTO') || x.campo.includes('PRECIO')) badgeClass = "bg-amber-100 text-amber-700";
-                else if (x.campo.includes('STOCK')) badgeClass = "bg-blue-100 text-blue-700";
-
-                return `
-                <tr class="hover:bg-gray-50 transition-colors group">
-                    <td class="p-4 font-mono text-gray-400 text-[10px] border-l-2 border-transparent group-hover:border-emerald-500">
-                        ${x.fecha.split(',')[0]} <br>
-                        <span class="text-gray-300">${x.fecha.split(',')[1] || ''}</span>
-                    </td>
-                    <td class="p-4 font-bold text-gray-800 uppercase">${x.producto}</td>
-                    <td class="p-4">
-                        <span class="px-2 py-1 rounded text-[9px] font-bold uppercase ${badgeClass}">${x.campo}</span>
-                    </td>
-                    <td class="p-4 text-red-400 line-through font-mono text-[10px]">${x.antes || '-'}</td>
-                    <td class="p-4 text-emerald-600 font-black font-mono text-[10px]">${x.despues}</td>
-                </tr>`;
-            }).join('');
-        }
-
-        function logHistory(p, a, b, c) {
-            db.ref('historial').push({ fecha: new Date().toLocaleString(), producto: p, campo: a, antes: b, despues: c });
-        }
-
-        // ==========================================
-        // 5. LÓGICA V9.1 (RENDERIZADO)
-        // ==========================================
-        function showSection(id) {
-            document.querySelectorAll('.section-content').forEach(s => s.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('section-'+id).classList.remove('hidden');
-            document.getElementById('tab-'+id).classList.add('active');
-        }
-        function openModal(id) { document.getElementById(id).classList.remove('opacity-0', 'pointer-events-none'); }
-        function closeModal(id) { document.getElementById(id).classList.add('opacity-0', 'pointer-events-none'); }
-        function populateCatSelects() {
-            const h = Object.values(database.categorias).sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-            document.getElementById('new-categoria').innerHTML = h; 
-            document.getElementById('edit-categoria').innerHTML = h;
-        }
-        function renderTags() {
-            const c = document.getElementById('tagContainer');
-            let h = `<button onclick="filterByTag(null)" class="category-pill px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold ${!activeTagId ? 'active' : ''}">VER TODOS</button>`;
-            Object.entries(database.categorias).sort((a,b)=>a[1].nombre.localeCompare(b[1].nombre)).forEach(([id, cat]) => {
-                h += `<button onclick="filterByTag('${id}')" class="category-pill px-3 py-1 rounded-full text-[10px] font-bold ${activeTagId === id ? 'active' : ''}" style="border: 1px solid ${cat.color}; color:${cat.color}">${cat.nombre}</button>`;
-            });
-            c.innerHTML = h;
-        }
-        function filterByTag(id) { activeTagId = id; renderTags(); renderTable(); }
-        function renderTable() {
-            const body = document.getElementById('inventoryBody');
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            let html = ''; 
-            let stats = { t: 0, l: 0, o: 0, v: 0 };
-            Object.values(database.productos).forEach(p => {
-                if (p.nombre.toLowerCase().includes(query) && (!activeTagId || p.tag_id === activeTagId)) {
-                    stats.t++; 
-                    if(p.stock_actual <= 0) stats.o++; 
-                    else if(p.stock_actual < 5) stats.l++; 
-                    stats.v += ((p.precio_venta||0) * p.stock_actual);
-                    const cat = database.categorias[p.tag_id] || {nombre: 'SIN CAT', color: '#999'};
-                    const costoHtml = currentUser && currentUser.rol === 'ADMIN' 
-                        ? `<td class="p-4 text-right text-gray-400 font-mono">$${(p.precio_unitario||0).toLocaleString()}</td>` 
-                        : '';
-                    html += `<tr class="hover:bg-gray-50 border-b">
-                        <td class="p-4 flex items-center gap-3"><img src="${p.imagen}" class="product-img"><span class="font-bold uppercase">${p.nombre}</span></td>
-                        <td class="p-4"><span class="px-2 py-1 rounded text-[10px] font-black" style="background:${cat.color}22; color:${cat.color}">${cat.nombre}</span></td>
-                        ${costoHtml}
-                        <td class="p-4 text-right font-black text-emerald-600 font-mono">$${(p.precio_venta||0).toLocaleString()}</td>
-                        <td class="p-4 text-center font-black ${p.stock_actual<=0?'text-red-600':''}">${p.stock_actual}</td>
-                    </tr>`;
-                }
-            });
-            body.innerHTML = html;
-            document.getElementById('stat-total').innerText = stats.t; 
-            document.getElementById('stat-low').innerText = stats.l; 
-            document.getElementById('stat-out').innerText = stats.o; 
-            if(currentUser && currentUser.rol === 'ADMIN') document.getElementById('stat-value').innerText = '$' + stats.v.toLocaleString();
-        }
-        function addProduct() {
-            if(currentUser.rol !== 'ADMIN') return;
-            const n = document.getElementById('new-nombre').value.trim().toUpperCase().replace(/\s+/g, ' ');
-            if(!n) return alert("Nombre vacío");
-            if(Object.values(database.productos).some(p=>p.nombre===n)) return alert("Ya existe");
-            const ref = db.ref('productos').push();
-            ref.set({ id: ref.key, nombre: n, tag_id: document.getElementById('new-categoria').value, stock_actual: parseInt(document.getElementById('new-stock').value) || 0, precio_unitario: parseInt(document.getElementById('new-costo').value) || 0, precio_venta: parseInt(document.getElementById('new-venta').value) || 0, imagen: document.getElementById('new-imagen').value || '' }).then(() => closeModal('modalProducto'));
-        }
-        function liveSearchEdit() {
-            const f = document.getElementById('editSearchInput').value.toLowerCase();
-            const s = document.getElementById('edit-select');
-            s.innerHTML = Object.values(database.productos).filter(p=>p.nombre.toLowerCase().includes(f)).sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
-        }
-        function populateEditSelect() { liveSearchEdit(); }
-        function loadProductToEdit() {
-            const p = database.productos[document.getElementById('edit-select').value];
-            if(!p) return;
-            document.getElementById('edit-nombre').value = p.nombre;
-            document.getElementById('edit-stock').value = p.stock_actual;
-            document.getElementById('edit-costo').value = p.precio_unitario || 0;
-            document.getElementById('edit-venta').value = p.precio_venta || 0;
-            document.getElementById('edit-categoria').value = p.tag_id || "";
-        }
-        function saveChanges() {
-            if(currentUser.rol !== 'ADMIN') return;
-            const id = document.getElementById('edit-select').value;
-            if(!id) return;
-            const pAnt = database.productos[id];
-            const nNombre = document.getElementById('edit-nombre').value.toUpperCase().trim().replace(/\s+/g, ' ');
-            const nuevos = {
-                nombre: nNombre, tag_id: document.getElementById('edit-categoria').value,
-                stock_actual: parseInt(document.getElementById('edit-stock').value) || 0,
-                precio_unitario: parseInt(document.getElementById('edit-costo').value) || 0,
-                precio_venta: parseInt(document.getElementById('edit-venta').value) || 0
+    if (foundUserKey) {
+        const userData = database.usuarios[foundUserKey];
+        if (userData.password === passIn) {
+            currentUser = {
+                key: foundUserKey,
+                username: userData.username,
+                role: userData.role
             };
-            db.ref('productos/' + id).update(nuevos).then(() => alert("Actualizado"));
-        }
-        function deleteProduct() {
-            if(currentUser.rol !== 'ADMIN') return;
-            const id = document.getElementById('edit-select').value;
-            if(id && confirm("¿Eliminar?")) db.ref('productos/' + id).remove();
-        }
-        function addTag() {
-            if(currentUser.rol !== 'ADMIN') return;
-            const n = document.getElementById('new-tag-name').value.trim().toUpperCase().replace(/\s+/g, ' ');
-            if(!n) return;
-            if(Object.values(database.categorias).some(c=>c.nombre===n)) return alert("Existe categoría");
-            const tid = Date.now().toString();
-            db.ref('categorias').child(tid).set({ id: tid, nombre: n, color: document.getElementById('new-tag-color').value }).then(() => closeModal('modalTag'));
-        }
-        function exportInventoryPDF() {
-            if(currentUser.rol !== 'ADMIN') return;
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const fecha = new Date().toLocaleString();
-            doc.setFontSize(18); doc.setTextColor(5, 150, 105);
-            doc.text("AGROCAMACHO - INVENTARIO", 14, 20);
-            doc.setFontSize(10); doc.setTextColor(100);
-            doc.text(`Fecha: ${fecha}`, 14, 28);
-            const grouped = {};
-            Object.values(database.productos).forEach(p => {
-                const catId = p.tag_id || 'SIN_CAT'; if(!grouped[catId]) grouped[catId] = []; grouped[catId].push(p);
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('login-user').value = '';
+            document.getElementById('login-pass').value = '';
+            
+            // Verificar estado de sistema inmediatamente
+            db.ref('sistema').once('value').then(snap => {
+                const sys = snap.val();
+                if(!sys || !sys.bloqueo) {
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('main-app').classList.remove('hidden');
+                    document.getElementById('current-user-display').innerText = `${currentUser.username} [${currentUser.role}]`;
+                    applyRolePermissions();
+                    // Corrección: Forzar a mostrar Inventario al loguearse para evitar pantalla blanca o mezclas
+                    showSection('inventario');
+                }
             });
-            let finalY = 35;
-            Object.keys(grouped).sort((a,b)=> (database.categorias[a]?.nombre||'Z').localeCompare(database.categorias[b]?.nombre||'Z')).forEach(catId => {
-                const cat = database.categorias[catId] || {nombre: 'SIN CAT', color: '#999'};
-                const prods = grouped[catId].sort((a,b) => a.nombre.localeCompare(b.nombre));
-                const hex = cat.color || '#10b981'; const r = parseInt(hex.slice(1,3),16); const g = parseInt(hex.slice(3,5),16); const b = parseInt(hex.slice(5,7),16);
-                doc.autoTable({
-                    startY: finalY,
-                    head: [[{content: cat.nombre.toUpperCase(), colSpan: 4, styles: {fillColor: [r,g,b], halign: 'center', fontStyle: 'bold'}}], ['PRODUCTO', 'STOCK', 'VENTA', 'VALOR TOTAL']],
-                    body: prods.map(p => [ p.nombre, p.stock_actual, `$${(p.precio_venta||0).toLocaleString()}`, `$${((p.precio_venta||0)*p.stock_actual).toLocaleString()}`]),
-                    theme: 'grid', headStyles: { fontSize: 9 }, styles: { fontSize: 8 }, margin: { top: 30 }
-                });
-                finalY = doc.lastAutoTable.finalY + 10;
-            });
-            doc.save(`Inventario_${Date.now()}.pdf`);
+            return;
         }
-        document.getElementById('searchInput').addEventListener('input', renderTable);
-    </script>
+    }
+    errorMsg.classList.remove('hidden');
+    const card = document.querySelector('#login-screen > div');
+    card.classList.add('animate-bounce');
+    setTimeout(() => card.classList.remove('animate-bounce'), 500);
+}
+
+function logout() {
+    currentUser = null;
+    document.getElementById('main-app').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+}
+
+function applyRolePermissions() {
+    if (!currentUser) return;
+    const isAdmin = currentUser.role === 'ADMIN';
+    const adminElements = document.querySelectorAll('.admin-only');
+    const inventoryTable = document.getElementById('inventory-table');
+
+    adminElements.forEach(el => {
+        if (isAdmin) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+    });
+
+    if (isAdmin) inventoryTable.classList.remove('hide-cost-col');
+    else inventoryTable.classList.add('hide-cost-col');
+}
+
+function createNewUser() {
+    const name = document.getElementById('new-user-name').value.trim().toUpperCase();
+    const pass = document.getElementById('new-user-pass').value.trim();
+    const role = document.getElementById('new-user-role').value;
+    if (!name || !pass) return showToast("Completa todos los campos", "error");
+    const exists = Object.values(database.usuarios).some(u => u.username.toUpperCase() === name);
+    if (exists) return showToast("El usuario ya existe", "error");
+
+    const newUserRef = db.ref('usuarios').push();
+    newUserRef.set({ username: name, password: pass, role: role })
+    .then(() => {
+        showToast("Usuario creado correctamente", "success");
+        document.getElementById('new-user-name').value = "";
+        document.getElementById('new-user-pass').value = "";
+    }).catch(err => showToast("Error: " + err.message, "error"));
+}
+
+function deleteUser(key, username) {
+    if(confirm(`¿Eliminar usuario ${username}?`)) {
+        db.ref('usuarios/' + key).remove().then(() => showToast("Usuario eliminado", "success"));
+    }
+}
+
+function renderUsersList() {
+    const tbody = document.getElementById('users-list-body');
+    let html = '';
+    Object.entries(database.usuarios).forEach(([key, u]) => {
+        const isMe = currentUser && key === currentUser.key;
+        const btnDelete = isMe 
+            ? `<span class="text-gray-300 text-[10px] font-bold uppercase px-2">Actual</span>` 
+            : `<button onclick="deleteUser('${key}', '${u.username}')" class="text-red-500 hover:text-red-700 font-bold text-xs uppercase border border-red-200 px-2 py-1 rounded hover:bg-red-50">Eliminar</button>`;
+
+        const roleBadge = u.role === 'ADMIN' 
+            ? `<span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Admin</span>`
+            : `<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Operario</span>`;
+
+        html += `
+        <tr class="hover:bg-gray-50 border-b last:border-0">
+            <td class="p-4 uppercase font-black">${u.username}</td>
+            <td class="p-4">${roleBadge}</td>
+            <td class="p-4 text-right">${btnDelete}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+function showToast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    const bgClass = type === 'error' ? 'bg-red-600' : (type === 'success' ? 'bg-emerald-600' : 'bg-gray-800');
+    el.className = `${bgClass} text-white px-6 py-3 rounded-xl shadow-xl mb-3 font-bold text-sm uppercase tracking-wide transform transition-all translate-y-10 opacity-0`;
+    el.innerText = msg;
+    container.appendChild(el);
+    requestAnimationFrame(() => el.classList.remove('translate-y-10', 'opacity-0'));
+    setTimeout(() => {
+        el.classList.add('translate-y-10', 'opacity-0');
+        setTimeout(() => el.remove(), 300);
+    }, 3000);
+}
+
+// ==========================================
+// LÓGICA PRINCIPAL (DATOS)
+// ==========================================
+
+db.ref('/').on('value', (snapshot) => {
+const data = snapshot.val();
+
+// Corrección CRÍTICA: Eliminamos el guardia "if(!currentUser) return".
+// Ahora cargamos datos siempre, aunque estemos en login. Esto evita la pantalla blanca.
+
+if (data) {
+    database.productos = data.productos || {};
+    database.categorias = data.categorias || {};
+    database.periodos = data.periodos || {};
+
+    // Renderizar siempre para tener la lista preparada en background
+    renderTags();
+    renderTagsSales();
+    renderTable();
+    populateCatSelects();
+    populateEditSelect();
+    renderHistory(data.historial);
+    renderPeriodList();
+    updatePeriodProductList();
+
+    const pAbierto = Object.values(database.periodos).find(p => p.estado === 'ABIERTO');
+    if(pAbierto && !activePeriodId) setPeriodActive(pAbierto.id, pAbierto.nombre);
+    if(activePeriodId) renderPeriodMovements();
+}
+});
+
+// ============================================================
+// LOGICA V10 (Ventas y Turnos)
+// ============================================================
+
+function resetToCreation() {
+activePeriodId = null;
+document.getElementById('active-period-panel').classList.add('hidden');
+document.getElementById('period-creation-panel').classList.remove('hidden');
+renderPeriodList();
+}
+
+function createPeriod() {
+const pAbierto = Object.values(database.periodos).find(p => p.estado === 'ABIERTO');
+if(pAbierto) {
+alert(`Ya hay un turno abierto: ${pAbierto.nombre}. Ciérralo antes de iniciar uno nuevo.`);
+setPeriodActive(pAbierto.id, pAbierto.nombre);
+return;
+}
+const nInput = document.getElementById('period-name-input');
+const n = nInput.value.trim().toUpperCase();
+if(!n) return alert("Escribe un nombre para el turno");
+const newRef = db.ref('periodos').push();
+const id = newRef.key;
+newRef.set({
+id: id, nombre: n, fecha: new Date().toLocaleString(), estado: 'ABIERTO', movimientos: {}
+}).then(() => { nInput.value = ""; setPeriodActive(id, n); });
+}
+
+function setPeriodActive(id, name) {
+activePeriodId = id;
+const p = database.periodos[id];
+if(!p) return;
+document.getElementById('active-period-panel').classList.remove('hidden');
+document.getElementById('period-creation-panel').classList.add('hidden');
+document.getElementById('current-period-title').innerText = "📍 " + name;
+document.getElementById('current-period-date').innerText = p.fecha;
+const isAbierto = p.estado === 'ABIERTO';
+document.getElementById('pos-controls').style.display = isAbierto ? 'grid' : 'none';
+document.getElementById('btn-close-period').style.display = isAbierto ? 'block' : 'none';
+renderPeriodMovements();
+renderPeriodList();
+}
+
+function closeCurrentPeriod() {
+if(confirm("¿Cerrar turno definitivamente?")) {
+db.ref(`periodos/${activePeriodId}/estado`).set('CERRADO').then(() => resetToCreation());
+}
+}
+
+function updatePeriodProductList() {
+const f = document.getElementById('period-search').value.toLowerCase();
+const select = document.getElementById('period-product-select');
+let html = '';
+Object.values(database.productos)
+.sort((a,b)=>a.nombre.localeCompare(b.nombre))
+.filter(p => p.nombre.toLowerCase().includes(f) && (!salesActiveTag || p.tag_id === salesActiveTag))
+.forEach(p => {
+html += `<option value="${p.id}" class="p-3 text-[10px] font-black uppercase">${p.nombre} — [${p.stock_actual}]</option>`;
+});
+select.innerHTML = html;
+}
+
+function renderTagsSales() {
+const container = document.getElementById('tagContainerSales');
+let html = `<button onclick="filterSalesByTag(null)" class="px-3 py-1.5 rounded-xl text-[8px] font-black border ${!salesActiveTag ? 'bg-black text-white' : 'bg-white text-gray-400'}">TODOS</button>`;
+Object.values(database.categorias).forEach(c => {
+const act = salesActiveTag === c.id;
+html += `<button onclick="filterSalesByTag('${c.id}')" class="px-3 py-1.5 rounded-xl text-[8px] font-black border" style="border-color:${c.color}; background:${act?c.color:'transparent'}; color:${act?'white':c.color}">${c.nombre}</button>`;
+});
+container.innerHTML = html;
+}
+
+function filterSalesByTag(id) {
+salesActiveTag = id;
+renderTagsSales();
+updatePeriodProductList();
+}
+
+function addMovement() {
+const pid = document.getElementById('period-product-select').value;
+const qty = parseInt(document.getElementById('period-qty').value);
+const type = document.getElementById('period-type').value;
+if(!pid || qty <= 0) return alert("Selecciona producto y cantidad válida");
+const prod = database.productos[pid];
+if(type === 'VENTA' && qty > prod.stock_actual) return alert("Stock insuficiente en bodega");
+const mid = 'M' + Date.now();
+const monto = (prod.precio_venta || 0) * qty;
+db.ref(`periodos/${activePeriodId}/movimientos/${mid}`).set({
+id: mid, productoId: pid, nombre: prod.nombre, cantidad: qty, precio: prod.precio_venta || 0, monto: monto, tipo: type, hora: new Date().toLocaleTimeString()
+}).then(() => {
+const newStock = type === 'VENTA' ? (prod.stock_actual - qty) : (prod.stock_actual + qty);
+db.ref(`productos/${pid}/stock_actual`).set(newStock);
+document.getElementById('period-qty').value = "1";
+});
+}
+
+function renderPeriodMovements() {
+const p = database.periodos[activePeriodId];
+const body = document.getElementById('summary-items-table');
+let totalVentas = 0;
+body.innerHTML = '';
+if(p?.movimientos) {
+Object.values(p.movimientos).reverse().forEach(v => {
+const esVenta = v.tipo === 'VENTA' || !v.tipo; 
+if(esVenta) totalVentas += (v.monto || (v.cantidad * (v.precio || 0)));
+body.innerHTML += `<tr class="hover:bg-white transition-colors">
+<td class="p-3 text-[8px] font-black ${esVenta?'text-red-500':'text-blue-500'}">${v.tipo||'VENTA'}</td>
+<td class="p-3 uppercase font-black truncate max-w-[120px]" title="${v.nombre}">${v.nombre}</td>
+<td class="p-3 text-center">
+<span onclick="${p.estado==='ABIERTO' ? `editMovementQty('${v.id}', '${v.productoId}', ${v.cantidad}, '${v.tipo||'VENTA'}')` : ''}"
+class="${p.estado==='ABIERTO' ? 'cursor-pointer hover:bg-emerald-100 px-2 py-1 rounded-lg border border-dashed border-emerald-300 transition-all' : 'text-gray-400'}"> ${v.cantidad}</span>
+</td>
+<td class="p-3 text-right font-black font-mono">$${(v.monto || (v.cantidad * (v.precio || 0))).toLocaleString()}</td>
+<td class="p-3 text-center">${p.estado==='ABIERTO' ? `<button onclick="removeMovement('${v.id}','${v.productoId}',${v.cantidad},'${v.tipo||'VENTA'}')" class="text-red-300 hover:text-red-600 transition-colors">✕</button>` : '🔒'}</td>
+</tr>`;
+});
+}
+document.getElementById('period-total-sales').innerText = '$' + totalVentas.toLocaleString();
+}
+
+function editMovementQty(mid, pid, oldQty, type) {
+const newQty = prompt("Nueva cantidad para este movimiento:", oldQty);
+if (newQty === null || newQty === "" || isNaN(newQty) || parseInt(newQty) < 0) return;
+const q = parseInt(newQty);
+const prod = database.productos[pid];
+const diff = q - oldQty;
+if (type === 'VENTA' && diff > prod.stock_actual) return alert("Stock insuficiente para esta corrección");
+const nuevoMonto = (prod.precio_venta || 0) * q;
+db.ref(`periodos/${activePeriodId}/movimientos/${mid}`).update({ cantidad: q, monto: nuevoMonto }).then(() => {
+const s = (type === 'VENTA') ? (prod.stock_actual + oldQty - q) : (prod.stock_actual - oldQty + q);
+db.ref(`productos/${pid}/stock_actual`).set(s);
+});
+}
+
+function removeMovement(mid, pid, qty, type) {
+if(!confirm("¿Eliminar este movimiento y devolver el stock?")) return;
+db.ref(`periodos/${activePeriodId}/movimientos/${mid}`).remove().then(() => {
+const p = database.productos[pid];
+if(p) {
+const restoredStock = type==='VENTA' ? (p.stock_actual + qty) : (p.stock_actual - qty);
+db.ref(`productos/${pid}/stock_actual`).set(restoredStock);
+}
+});
+}
+
+function renderPeriodList() {
+document.getElementById('period-list-container').innerHTML = Object.values(database.periodos).reverse().map(p => `
+<div class="period-card bg-white p-4 rounded-2xl border shadow-sm cursor-pointer ${activePeriodId === p.id ? 'border-emerald-500 ring-2 ring-emerald-100' : 'hover:border-gray-300'}" onclick="setPeriodActive('${p.id}','${p.nombre}')">
+<p class="text-[8px] font-black text-gray-400 uppercase">${p.fecha}</p>
+<h4 class="text-xs font-black text-emerald-950 uppercase mb-3 leading-tight">${p.nombre}</h4>
+<button class="w-full py-2 rounded-xl text-[9px] font-black uppercase transition-all pointer-events-none ${p.estado==='ABIERTO' ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-100 text-gray-500'}"> ${p.estado==='ABIERTO' ? 'Activo' : 'Cerrado'}</button>
+</div>`).join('');
+}
+
+function exportCategorizedPDF() {
+const p = database.periodos[activePeriodId];
+if (!p || !p.movimientos) return alert("No hay movimientos registrados en este turno.");
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF();
+doc.setFontSize(18); doc.setFont("helvetica", "bold");
+doc.text("REPORTE DE VENTAS - AGROCAMACHO", 105, 15, { align: 'center' });
+doc.setFontSize(10); doc.setFont("helvetica", "normal");
+doc.text(`TURNO: ${p.nombre}`, 105, 22, { align: 'center' });
+doc.text(`FECHA: ${p.fecha}`, 105, 27, { align: 'center' });
+const agrupado = {}; let totalGeneralVentas = 0;
+Object.values(p.movimientos).forEach(v => {
+const esVenta = v.tipo === 'VENTA' || !v.tipo;
+if (esVenta) {
+totalGeneralVentas += (v.monto || (v.cantidad * v.precio));
+const productoInfo = database.productos[v.productoId];
+const categoriaNombre = (productoInfo && database.categorias[productoInfo.tag_id]) ? database.categorias[productoInfo.tag_id].nombre : "SIN CATEGORÍA";
+if (!agrupado[categoriaNombre]) agrupado[categoriaNombre] = [];
+agrupado[categoriaNombre].push([v.nombre.toUpperCase(), v.cantidad, `$${(v.precio || 0).toLocaleString()}`, `$${(v.monto || (v.cantidad * v.precio)).toLocaleString()}`]);
+}
+});
+let yPos = 35;
+for (const [categoria, filas] of Object.entries(agrupado)) {
+doc.setFontSize(11); doc.setFont("helvetica", "bold");
+doc.text(`CATEGORÍA: ${categoria.toUpperCase()}`, 14, yPos);
+doc.autoTable({ startY: yPos + 2, head: [['PRODUCTO', 'CANT.', 'PRECIO', 'SUBTOTAL']], body: filas, theme: 'grid', headStyles: { fillColor: [5, 150, 105] }, styles: { fontSize: 8, font: "helvetica" }, margin: { left: 14, right: 14 } });
+yPos = doc.lastAutoTable.finalY + 10; if (yPos > 250) { doc.addPage(); yPos = 20; }
+}
+const finalY = yPos + 5; doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.setFillColor(240, 240, 240); doc.rect(14, finalY, 182, 12, 'F');
+doc.text(`TOTAL RECAUDADO: $${totalGeneralVentas.toLocaleString()}`, 105, finalY + 8, { align: 'center' });
+doc.save(`Reporte_${p.nombre.replace(/\s+/g, '_')}.pdf`);
+}
+
+// ============================================================
+// LOGICA V9.1 (Resto del sistema)
+// ============================================================
+
+function showSection(id) {
+// Seguridad básica
+if(currentUser && currentUser.role === 'OPERARIO') {
+    if(id === 'editar' || id === 'historial' || id === 'usuarios') return;
+}
+
+document.querySelectorAll('.section-content').forEach(s => s.classList.add('hidden'));
+document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+document.getElementById('section-'+id).classList.remove('hidden');
+document.getElementById('tab-'+id).classList.add('active');
+}
+
+function openModal(id) { document.getElementById(id).classList.remove('opacity-0', 'pointer-events-none'); }
+function closeModal(id) { document.getElementById(id).classList.add('opacity-0', 'pointer-events-none'); }
+
+function populateCatSelects() {
+const cats = Object.values(database.categorias).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+const h = cats.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+const defaultOption = '<option value="">-- SELECCIONAR --</option>';
+document.getElementById('new-categoria').innerHTML = defaultOption + h;
+document.getElementById('edit-categoria').innerHTML = defaultOption + h;
+}
+
+function addProduct() {
+const n = document.getElementById('new-nombre').value.trim().toUpperCase().replace(/\s+/g, ' ');
+if(!n) return alert("El nombre del producto no puede estar vacío");
+const existe = Object.values(database.productos).some(p => p.nombre.trim().toUpperCase().replace(/\s+/g, ' ') === n);
+if (existe) return alert(`⚠️ ERROR: Ya existe un producto con el nombre "${n}".`);
+const ref = db.ref('productos').push();
+ref.set({
+id: ref.key, nombre: n, tag_id: document.getElementById('new-categoria').value,
+stock_actual: parseInt(document.getElementById('new-stock').value) || 0,
+precio_unitario: parseInt(document.getElementById('new-costo').value) || 0,
+precio_venta: parseInt(document.getElementById('new-venta').value) || 0,
+imagen: document.getElementById('new-imagen').value || ''
+}).then(() => {
+closeModal('modalProducto');
+logHistory(n, "CREACIÓN", "-", "REGISTRADO");
+document.getElementById('new-nombre').value = "";
+document.getElementById('new-stock').value = "";
+document.getElementById('new-costo').value = "";
+document.getElementById('new-venta').value = "";
+});
+}
+
+function liveSearchEdit() {
+const f = document.getElementById('editSearchInput').value.toLowerCase();
+const s = document.getElementById('edit-select');
+const val = s.value; s.innerHTML = '';
+Object.values(database.productos).filter(p=>p.nombre.toLowerCase().includes(f)).sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(p => {
+s.innerHTML += `<option value="${p.id}" class="p-2 border-b uppercase font-bold text-xs">${p.nombre}</option>`;
+});
+if(val) s.value = val;
+}
+
+function populateEditSelect() { liveSearchEdit(); }
+
+function loadProductToEdit() {
+const id = document.getElementById('edit-select').value;
+const p = database.productos[id];
+if(!p) return;
+document.getElementById('edit-nombre').value = p.nombre;
+document.getElementById('edit-stock').value = p.stock_actual;
+document.getElementById('edit-costo').value = p.precio_unitario || 0;
+document.getElementById('edit-venta').value = p.precio_venta || 0;
+document.getElementById('edit-categoria').value = p.tag_id || "";
+}
+
+function saveChanges() {
+const id = document.getElementById('edit-select').value;
+if(!id) return alert("Selecciona un producto primero.");
+const pAnt = database.productos[id];
+const nNombre = document.getElementById('edit-nombre').value.toUpperCase().trim().replace(/\s+/g, ' ');
+const nTagId = document.getElementById('edit-categoria').value;
+const nStock = parseInt(document.getElementById('edit-stock').value) || 0;
+const nCosto = parseInt(document.getElementById('edit-costo').value) || 0;
+const nVenta = parseInt(document.getElementById('edit-venta').value) || 0;
+if(nNombre !== pAnt.nombre) {
+const existe = Object.values(database.productos).some(p => p.id !== id && p.nombre.trim().toUpperCase().replace(/\s+/g, ' ') === nNombre);
+if(existe) return alert("Ya existe otro producto con ese nombre.");
+}
+const nuevos = { nombre: nNombre, tag_id: nTagId, stock_actual: nStock, precio_unitario: nCosto, precio_venta: nVenta };
+if(nNombre !== pAnt.nombre) logHistory(nNombre, "CAMBIO NOMBRE", pAnt.nombre, nNombre);
+if(pAnt.tag_id !== nTagId) {
+const nombreCatAnt = database.categorias[pAnt.tag_id]?.nombre || "SIN CAT";
+const nombreCatNue = database.categorias[nTagId]?.nombre || "SIN CAT";
+logHistory(nNombre, "CAMBIO CATEGORÍA", nombreCatAnt, nombreCatNue);
+}
+if(pAnt.stock_actual !== nStock) logHistory(nNombre, "AJUSTE STOCK", pAnt.stock_actual, nStock);
+if((pAnt.precio_unitario || 0) !== nCosto) logHistory(nNombre, "CAMBIO COSTO", (pAnt.precio_unitario || 0), nCosto);
+if((pAnt.precio_venta || 0) !== nVenta) logHistory(nNombre, "CAMBIO PRECIO VENTA", (pAnt.precio_venta || 0), nVenta);
+db.ref('productos/' + id).update(nuevos).then(() => { alert("Cambios guardados correctamente."); }).catch(error => { alert("Error al guardar: " + error.message); });
+}
+
+function deleteProduct() {
+const id = document.getElementById('edit-select').value;
+if(id && confirm("¿Eliminar este producto permanentemente?")) {
+logHistory(database.productos[id].nombre, "ELIMINADO", "EXISTE", "BORRADO");
+db.ref('productos/' + id).remove();
+}
+}
+
+function addTag() {
+const n = document.getElementById('new-tag-name').value.trim().toUpperCase().replace(/\s+/g, ' ');
+if(!n) return alert("Ingrese un nombre para la categoría");
+const existe = Object.values(database.categorias).some(cat => cat.nombre.trim().toUpperCase().replace(/\s+/g, ' ') === n);
+if (existe) return alert(`⚠️ ERROR: La categoría "${n}" ya existe.`);
+const tagId = Date.now().toString();
+db.ref('categorias').child(tagId).set({ id: tagId, nombre: n, color: document.getElementById('new-tag-color').value })
+.then(() => { closeModal('modalTag'); document.getElementById('new-tag-name').value = ""; });
+}
+
+function renderTags() {
+const c = document.getElementById('tagContainer');
+let h = `<button onclick="filterByTag(null)" class="category-pill px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold ${!activeTagId ? 'active' : ''}">VER TODOS</button>`;
+Object.entries(database.categorias).sort((a,b)=>a[1].nombre.localeCompare(b[1].nombre)).forEach(([id, cat]) => {
+h += `<button onclick="filterByTag('${id}')" class="category-pill px-3 py-1 rounded-full text-[10px] font-bold ${activeTagId === id ? 'active' : ''}" style="border: 1px solid ${cat.color}; color:${cat.color}">${cat.nombre}</button>`;
+});
+c.innerHTML = h;
+}
+
+function filterByTag(id) { activeTagId = id; renderTags(); renderTable(); }
+
+function renderTable() {
+const body = document.getElementById('inventoryBody');
+const query = document.getElementById('searchInput').value.toLowerCase();
+let html = ''; let stats = { t: 0, l: 0, o: 0, v: 0 };
+Object.values(database.productos).forEach(p => {
+if (p.nombre.toLowerCase().includes(query) && (!activeTagId || p.tag_id === activeTagId)) {
+stats.t++; if(p.stock_actual <= 0) stats.o++; else if(p.stock_actual < 5) stats.l++;
+stats.v += ((p.precio_venta||0) * p.stock_actual);
+const cat = database.categorias[p.tag_id] || {nombre: 'SIN CAT', color: '#999'};
+html += `<tr class="hover:bg-gray-50 border-b"><td class="p-4 flex items-center gap-3"><img src="${p.imagen}" class="product-img"><span class="font-bold uppercase">${p.nombre}</span></td><td class="p-4"><span class="px-2 py-1 rounded text-[10px] font-black" style="background:${cat.color}22; color:${cat.color}">${cat.nombre}</span></td><td class="p-4 text-right text-gray-400 font-mono">$${(p.precio_unitario||0).toLocaleString()}</td><td class="p-4 text-right font-black text-emerald-600 font-mono">$${(p.precio_venta||0).toLocaleString()}</td><td class="p-4 text-center font-black ${p.stock_actual<=0?'text-red-600':''}">${p.stock_actual}</td></tr>`;
+}
+});
+body.innerHTML = html;
+document.getElementById('stat-total').innerText = stats.t;
+document.getElementById('stat-low').innerText = stats.l;
+document.getElementById('stat-out').innerText = stats.o;
+document.getElementById('stat-value').innerText = '$' + stats.v.toLocaleString();
+}
+
+function exportInventoryPDF() {
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF();
+const fecha = new Date().toLocaleString();
+logHistory("SISTEMA", "EXPORTACIÓN PDF COLORES", "REPORTE", "PDF GENERADO");
+doc.setFontSize(18); doc.setTextColor(5, 150, 105);
+doc.text("AGROCAMACHO - INVENTARIO POR CATEGORÍAS", 14, 20);
+doc.setFontSize(10); doc.setTextColor(100);
+doc.text(`Fecha: ${fecha}`, 14, 28);
+const grouped = {}; Object.values(database.productos).forEach(p => { const catId = p.tag_id || 'SIN_CAT'; if(!grouped[catId]) grouped[catId] = []; grouped[catId].push(p); });
+let finalY = 35;
+Object.keys(grouped).sort((a,b) => { const nameA = (database.categorias[a]?.nombre || 'Z').toUpperCase(); const nameB = (database.categorias[b]?.nombre || 'Z').toUpperCase(); return nameA.localeCompare(nameB); }).forEach(catId => {
+const cat = database.categorias[catId] || {nombre: 'SIN CATEGORÍA', color: '#999999'};
+const prods = grouped[catId].sort((a,b) => a.nombre.localeCompare(b.nombre));
+const hex = cat.color || '#10b981';
+const r = parseInt(hex.slice(1, 3), 16); const g = parseInt(hex.slice(3, 5), 16); const b = parseInt(hex.slice(5, 7), 16);
+doc.autoTable({ startY: finalY, head: [[{content: cat.nombre.toUpperCase(), colSpan: 4, styles: {fillColor: [r,g,b], halign: 'center', fontStyle: 'bold'}}], ['PRODUCTO', 'STOCK', 'VENTA', 'VALOR TOTAL']], body: prods.map(p => [p.nombre, p.stock_actual, `$${(p.precio_venta||0).toLocaleString()}`, `$${((p.precio_venta||0)*p.stock_actual).toLocaleString()}`]), theme: 'grid', headStyles: { fontSize: 9 }, styles: { fontSize: 8 }, margin: { top: 30 } });
+finalY = doc.lastAutoTable.finalY + 10;
+});
+doc.save(`Inventario_Colores_${Date.now()}.pdf`);
+}
+
+function logHistory(p, a, b, c) { db.ref('historial').push({ fecha: new Date().toLocaleString(), producto: p, campo: a, antes: b, despues: c }); }
+
+function changeHistoryPage(delta) { historyPage += delta; db.ref('historial').once('value', (snapshot) => { renderHistory(snapshot.val()); }); }
+
+function renderHistory(h) {
+if (!h || Object.keys(h).length === 0) {
+document.getElementById('historyBody').innerHTML = '';
+document.getElementById('history-empty-state').classList.remove('hidden');
+document.getElementById('pagination-controls').classList.add('hidden');
+return;
+}
+document.getElementById('history-empty-state').classList.add('hidden');
+document.getElementById('pagination-controls').classList.remove('hidden');
+const historyArray = Object.values(h).reverse();
+const totalPages = Math.ceil(historyArray.length / historyLimit);
+if (historyPage > totalPages) historyPage = totalPages; if (historyPage < 1) historyPage = 1;
+const start = (historyPage - 1) * historyLimit; const end = start + historyLimit; const pageItems = historyArray.slice(start, end);
+const body = document.getElementById('historyBody');
+body.innerHTML = pageItems.map(x => {
+let badgeClass = "bg-gray-100 text-gray-600"; let rowClass = "border-gray-100"; const accion = x.campo ? x.campo.toUpperCase() : 'SISTEMA';
+if (accion.includes('CREACIÓN')) badgeClass = "bg-emerald-100 text-emerald-700 border border-emerald-200";
+else if (accion.includes('ELIMINADO')) badgeClass = "bg-red-100 text-red-700 border border-red-200";
+else if (accion.includes('AJUSTE')) badgeClass = "bg-amber-100 text-amber-700 border border-amber-200";
+else badgeClass = "bg-blue-50 text-blue-600 border border-blue-200";
+return `<tr class="audit-row border-b ${rowClass}"><td class="p-4 pl-6 whitespace-nowrap"><div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">${x.fecha.split(',')[0]}</div><div class="text-xs font-mono font-semibold text-gray-600">${x.fecha.split(',')[1] || ''}</div></td><td class="p-4"><div class="font-bold text-gray-900 uppercase text-sm leading-tight">${x.producto}</div><div class="text-[10px] text-gray-400 font-semibold mt-0.5">Ref: ${x.despues === 'BORRADO' ? 'Eliminado' : 'Activo'}</div></td><td class="p-4"><span class="audit-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${accion}</span></td><td class="p-4 text-right"><span class="text-xs font-mono text-gray-400 line-through decoration-red-300 decoration-2">${x.antes}</span></td><td class="p-4 text-right pr-6"><span class="text-sm font-mono font-bold text-emerald-700 bg-emerald-50/50 px-2 py-1 rounded">${x.despues}</span></td></tr>`;
+}).join('');
+document.getElementById('page-indicator').innerText = `${historyPage} / ${totalPages}`;
+const btnPrev = document.getElementById('btn-prev-page'); const btnNext = document.getElementById('btn-next-page');
+btnPrev.disabled = historyPage === 1; btnNext.disabled = historyPage === totalPages;
+}
+document.getElementById('searchInput').addEventListener('input', renderTable);
+</script>
 </body>
 </html>
